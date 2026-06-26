@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <!--
   L'84 FIFA 2026 — version log (newest first)
+  v159 · 2026-06-26 · Copy Recent Wagers visibility now refreshes whenever a
+  save/delete response applies a new Activity log payload, so WCW/Golden Boot
+  picks can reveal the button even when there are no recent match wagers.
   v158 · 2026-06-26 · Copy Recent Wagers now includes recent Tournament wagers
   in the same clipboard payload: World Cup Winner teams and Golden Boot players
   are grouped into comma-separated product rows while existing match rows stay
@@ -2964,6 +2967,7 @@ function applyLogResponse(r){
   if(r.logHasMore !== undefined) STATE.logHasMore = r.logHasMore;
   logFull = false;
   LOGVIEW = "recent";
+  updateCopyRecentWagersBtn();
 }
 
 /* ---------- Sheet (modal) ---------- */
