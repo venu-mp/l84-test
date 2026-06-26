@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <!--
   L'84 FIFA 2026 — version log (newest first)
+  v158 · 2026-06-26 · Copy Recent Wagers now includes recent Tournament wagers
+  in the same clipboard payload: World Cup Winner teams and Golden Boot players
+  are grouped into comma-separated product rows while existing match rows stay
+  unchanged.
   v157 · 2026-06-26 · Mobile identity row: moved score refresh status back to the
   Schedule timezone row (right-aligned); removed "Times in" label; TZ buttons
   left-justified — frees room so Copy Recent Wagers no longer pushes player name
@@ -1650,7 +1654,7 @@ function crwQualifyingEvents(){
   return STATE.log
     .filter(e => (e.type==="create"||e.type==="new"||e.type==="edit"||e.type==="delete")
               && String(e.owner)===String(acting)
-              && /^\d+$/.test(String(e.mN))) // match wagers only; bonus bets have sentinel mN values
+              && (/^\d+$/.test(String(e.mN)) || e.mN==="bonusWinner" || e.mN==="bonusGoldenBoot"))
     .filter(e => (now - new Date(e.t).getTime()) <= CRW_WINDOW_MS)
     .slice() // copy before reversing — STATE.log is newest-first
     .reverse(); // oldest-first = entry order
@@ -2511,15 +2515,15 @@ function crwFmtDateTime(ts){
 }
 
 function copyRecentWagers(){
-  // DISPLAY ONLY — collapses to the most recent event per matchup (current
-  // position, not edit history); the underlying Sheet Log keeps every raw
-  // event permanently regardless (Activity tab "Show all" / fullLog), so full
+  // DISPLAY ONLY — collapses to the most recent event per wager target (current
+  // position, not edit history); the underlying Sheet Log keeps every raw event
+  // permanently regardless (Activity tab "Show all" / fullLog), so full
   // provenance is never lost, just not surfaced in this WhatsApp-facing copy.
-  // A matchup whose LATEST event is a clear is OMITTED entirely — "cleared"
-  // as a standalone line is a non-sequitur to someone in the group with no
-  // context, and the point of this feature is "what are my live bets right
-  // now," not a history feed. No "(CURRENT)" suffix — collapsed to one line
-  // per matchup, there's nothing left to disambiguate.
+  // A target whose LATEST event is a clear is OMITTED entirely — "cleared" as
+  // a standalone line is a non-sequitur to someone in the group with no context,
+  // and the point of this feature is "what are my live wagers right now," not a
+  // history feed. No "(CURRENT)" suffix — collapsed to one line per matchup
+  // plus grouped Tournament rows, there's nothing left to disambiguate.
   const rawEvents = crwQualifyingEvents();
   if(!rawEvents.length) return; // shouldn't happen if button correctly hidden
   const tzLabel = TZS[TZSTATE].label;
@@ -2530,19 +2534,32 @@ function copyRecentWagers(){
   const first  = crwFmtDateTime(rawEvents[0].t);
   const nowFmt = crwFmtDateTime(Date.now());
 
-  // Collapse to the latest event per matchup, then drop any whose latest
-  // event is a delete — those have no current position to report. Keep
-  // chronological order (by each matchup's own latest event timestamp).
+  // Collapse to the latest event per match/team/player, then drop any whose
+  // latest event is a delete — those have no current position to report. Match
+  // rows keep their existing format; Tournament wagers are grouped by product
+  // after current-state is established per individual wager.
   const latestByMatch = new Map();
-  rawEvents.forEach(e => latestByMatch.set(e.mN, e)); // later events overwrite — rawEvents is oldest-first
-  const current = [...latestByMatch.values()]
+  const latestWinner = new Map();
+  const latestGoldenBoot = new Map();
+  rawEvents.forEach(e => {
+    if(/^\d+$/.test(String(e.mN))) latestByMatch.set(e.mN, e);
+    else if(e.mN==="bonusWinner") latestWinner.set(String(e.name || ""), e);
+    else if(e.mN==="bonusGoldenBoot") latestGoldenBoot.set(String(e.a || e.name || ""), e);
+  }); // later events overwrite — rawEvents is oldest-first
+  const currentMatches = [...latestByMatch.values()]
+    .filter(e => e.type !== "delete")
+    .sort((a,b) => new Date(a.t) - new Date(b.t));
+  const currentWinner = [...latestWinner.values()]
+    .filter(e => e.type !== "delete")
+    .sort((a,b) => new Date(a.t) - new Date(b.t));
+  const currentGoldenBoot = [...latestGoldenBoot.values()]
     .filter(e => e.type !== "delete")
     .sort((a,b) => new Date(a.t) - new Date(b.t));
 
   // Everything in the window ended up cleared — nothing worth sharing. Don't
   // copy an empty-feeling message (and definitely don't tell the user to
   // paste it into the group); just inform them inline and stop.
-  if(!current.length){
+  if(!currentMatches.length && !currentWinner.length && !currentGoldenBoot.length){
     toast("No active wagers to share right now", 4000);
     return;
   }
@@ -2552,16 +2569,30 @@ function copyRecentWagers(){
     `*${first.dm}, ${first.time} → ${nowFmt.dm}, ${nowFmt.time} ${tzLabel}*`,
     ``
   ];
-  current.forEach((e, idx)=>{
+  const rows = [];
+  currentMatches.forEach(e=>{
     const m = elFor(e.mN);
-    if(idx > 0) lines.push(``); // blank line between every wager row
-    if(!m){ lines.push(`M${e.mN} →   (match not found)`); return; }
+    if(!m){ rows.push(`M${e.mN} →   (match not found)`); return; }
     // Abbreviated matchup — flag + 3-letter code, no full country name —
     // to avoid long lines wrapping when pasted into WhatsApp on mobile.
     // No date prefix: within this single 3-hour-window copy, matchups are
     // unique, so a per-line date adds no disambiguating value.
     const match = `${teamFlag(m.a)} ${teamCode(m.a)}   v   ${teamFlag(m.b)} ${teamCode(m.b)}`;
-    lines.push(`${match} →   ${e.a}-${e.b}`);
+    rows.push(`${match} →   ${e.a}-${e.b}`);
+  });
+  if(currentWinner.length){
+    rows.push(`🏆 World Cup Winner → ${currentWinner.map(e => `${teamFlag(e.name)} ${e.name}`).join(", ")}`);
+  }
+  if(currentGoldenBoot.length){
+    rows.push(`🥾 Golden Boot → ${currentGoldenBoot.map(e => {
+      const team = e.b || "";
+      const code = team ? ` (${teamCode(team)})` : "";
+      return `${teamFlag(team)} ${e.name}${code}`;
+    }).join(", ")}`);
+  }
+  rows.forEach((row, idx)=>{
+    if(idx > 0) lines.push(``); // blank line between every wager row
+    lines.push(row);
   });
   const txt = lines.join("\n");
 
