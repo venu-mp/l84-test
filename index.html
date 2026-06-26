@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <!--
   L'84 FIFA 2026 — version log (newest first)
+  v157 · 2026-06-26 · Mobile identity row: moved score refresh status back to the
+  Schedule timezone row (right-aligned); removed "Times in" label; TZ buttons
+  left-justified — frees room so Copy Recent Wagers no longer pushes player name
+  off-screen.
   v156 · 2026-06-25 · Golden Boot Top Scorers CTA: centered on toolbar row (with
   Expand all on the right), green pill (var(--green-dim) fill — stats/goals context,
   not a wager), larger type + ~44px tap target for mobile.
@@ -309,14 +313,15 @@
   .acting-label{font-size:10px;color:var(--faint);font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;flex:none}
   .acting-name{font-size:14px;font-weight:750;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--paper)}
   .acting-reset{font-size:10px;color:var(--blue);background:none;border:none;cursor:pointer;padding:2px 4px;font-family:var(--ui);font-weight:600;flex:none;white-space:nowrap}
-  .score-status{margin-left:auto;text-align:right;min-width:96px;line-height:1.15;flex:none}
+  .score-status{text-align:right;line-height:1.15;flex:none}
+  .actingrow .crw-btn{margin-left:auto}
   .score-state{display:flex;align-items:center;justify-content:flex-end;gap:5px;font-size:10px;
     color:var(--muted);font-weight:750;letter-spacing:.02em;white-space:nowrap}
   .score-dot{width:6px;height:6px;border-radius:999px;background:var(--amber);display:inline-block;flex:none}
   .score-status.fresh .score-dot{background:var(--green)}
   .score-status.stale .score-dot{background:var(--amber)}
   .score-time{display:block;margin-top:3px;color:var(--faint);font-size:10.5px;font-weight:650;white-space:nowrap}
-  .crw-btn{flex:none;white-space:nowrap;margin-left:auto;background:var(--green);color:#fff;border:none;border-radius:7px;position:relative;
+  .crw-btn{flex:none;white-space:nowrap;background:var(--green);color:#fff;border:none;border-radius:7px;position:relative;
     padding:7px 11px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--ui)}
   .crw-btn:active{opacity:.8}
 
@@ -388,7 +393,9 @@
   .depth-toggle:disabled{opacity:.55;cursor:default}
   .depth-toggle:disabled .act{text-decoration:none}
   .segrow{display:flex; align-items:center; gap:6px; margin:0 2px 12px; flex-wrap:wrap}
-  .segrow.tzrow{margin-bottom:8px}
+  .segrow.tzrow{margin-bottom:8px;justify-content:space-between;flex-wrap:nowrap;gap:8px}
+  .tzrow-main{display:flex;align-items:center;gap:6px;flex:0 1 auto;min-width:0}
+  .segrow.tzrow .score-status{margin-left:auto;text-align:right;min-width:0;max-width:52%}
   .segrow .lbl{font-size:11px;color:var(--muted);font-weight:700;margin-right:2px}
   .seg{background:var(--surface); border:1px solid var(--line-2); color:var(--muted);
     border-radius:8px; padding:7px 11px; font-size:11.5px; font-weight:700; cursor:pointer; font-family:var(--ui)}
@@ -1035,10 +1042,6 @@
         <span class="acting-name" id="actingName">—</span>
         <button class="acting-reset" id="actingReset" title="Not you? Switch identity">(not you?)</button>
       </div>
-      <div class="score-status stale" id="scoreStatus">
-        <span class="score-state"><i class="score-dot"></i><span id="scoreStatusLabel">Not refreshed</span></span>
-        <span class="score-time" id="scoreStatusTime">Tap ↻ Scores</span>
-      </div>
       <button class="crw-btn" id="copyRecentWagersBtn" style="display:none">Copy Recent Wagers</button>
     </div>
     <div class="phase-wrap">
@@ -1058,9 +1061,16 @@
   </div>
 
   <div class="view active" id="view-schedule">
-    <div class="segrow tzrow"><span class="lbl">Times in</span>
-      <button class="seg tzseg active" data-tz="PDT">California · PDT</button>
-      <button class="seg tzseg" data-tz="IST">India · IST</button></div>
+    <div class="segrow tzrow">
+      <div class="tzrow-main">
+        <button class="seg tzseg active" data-tz="PDT">California · PDT</button>
+        <button class="seg tzseg" data-tz="IST">India · IST</button>
+      </div>
+      <div class="score-status stale" id="scoreStatus">
+        <span class="score-state"><i class="score-dot"></i><span id="scoreStatusLabel">Not refreshed</span></span>
+        <span class="score-time" id="scoreStatusTime">Tap ↻ Scores</span>
+      </div>
+    </div>
     <div class="gh-wrap">
       <div class="note legend gh-always">Wager closes the moment a match kicks off.
         <button class="gh-toggle" id="ghToggle" aria-expanded="false">more <span class="gh-chev">▾</span></button>
