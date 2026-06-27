@@ -1,6 +1,39 @@
 <!DOCTYPE html>
 <!--
   L'84 FIFA 2026 — version log (newest first)
+  v168 · 2026-06-26 · Match entry: silent per-match clipboard bootstrap (v56)
+  replaced with silent clear on first open only — prevents stale/confusing paste
+  without copying everyone else's wagers. Save/Clear re-renders skip clear so an
+  in-modal 📋 copy survives. Explicit 📋 + Copy Recent Wagers unchanged.
+  v167 · 2026-06-26 · Copy Recent Wagers: when every wager in the window is
+  cleared (nothing worth sharing), now clears the clipboard — same rule as
+  per-match copy (v55). Fixes stale paste after openMatch silent bootstrap
+  left another match's wagers on the clipboard.
+  v166 · 2026-06-26 · Activity log fix: Tournament WCW/Golden Boot clears (and all
+  other log writes) now refresh the Activity tab immediately — applyLogResponse
+  calls renderLog(). Me filter uses String-coerced owner compare (matches CRW).
+  v165 · 2026-06-26 · Migration step 1: Tournament self-entry formally open to
+  all wagerers on staging pre-lock (WCW + Golden Boot). Code already matched
+  match-wager macro rule — non-admins pick for themselves; admins keep proxy
+  and post-lock backfill. Spec §9 updated; no new client/server gate added.
+  v164 · 2026-06-26 · Export reliability fix: browsers may block four synthetic
+  downloads from one click, so Export now downloads one dependency-free ZIP
+  containing the four timestamped CSV artifacts.
+  v163 · 2026-06-26 · Export now downloads four timestamped CSV artifacts in one
+  action: match wagers, World Cup Winner wagers, Golden Boot wagers, and Top
+  Scorers. All files share a PDT timestamp suffix and remain dependency-free.
+  Tournament now opens on Golden Boot by default.
+  v162 · 2026-06-26 · Golden Boot adds a centered read-only Live Golden Boot
+  Leaderboard card/modal derived from current Top Scorers + active Golden Boot
+  wagers; #1 live leader cards use green/teal fill and detail drill-in stays
+  read-only.
+  v161 · 2026-06-26 · Match Leaderboard rename polish batch: mobile app tabs stay
+  on one row with thicker equal-width buttons; Match Leaderboard can wrap its
+  label onto two lines without pushing Tournament/Activity to a second row; the
+  Match Leaderboard pot card includes a centered surface title above Total Pot.
+  v160 · 2026-06-26 · Rename top-level Participants tab to Match Leaderboard;
+  allow the app tab row to wrap cleanly on narrow screens so the longer label
+  does not squeeze Tournament/Activity.
   v159 · 2026-06-26 · Copy Recent Wagers visibility now refreshes whenever a
   save/delete response applies a new Activity log payload, so WCW/Golden Boot
   picks can reveal the button even when there are no recent match wagers.
@@ -365,6 +398,7 @@
   .phase-card.group{border-color:#C2A568;background:linear-gradient(180deg,#F5ECD8 0%,var(--surface) 68%)}
   .phase-card.knockout{border-color:#5D78A8;background:linear-gradient(180deg,#E8EEF8 0%,var(--surface) 68%)}
   .tabs{display:flex;justify-content:space-between;align-items:flex-end;gap:8px;
+    flex-wrap:wrap;
     padding:7px 4px 0}
   .tab{
     flex:0 1 auto;text-align:center;padding:9px 6px;font-size:12.5px;font-weight:700;
@@ -424,7 +458,11 @@
     .prize{font-size:10px!important}
     .pmeta{font-size:10px!important}
     .rank{font-size:14px!important}
-    .tab{font-size:14px!important;padding:12px 2px!important}
+    .tabs{display:flex!important;flex-wrap:nowrap;gap:4px;justify-content:space-between;align-items:stretch}
+    .tab{flex:1 1 0;display:flex;align-items:center;justify-content:center;min-height:48px;
+      font-size:12.5px!important;padding:10px 3px!important;line-height:1.1;white-space:nowrap}
+    .tab[data-tab="table"]{white-space:normal}
+    #bonusTab.tab-highlight:not(.active){padding:9px 3px 8px!important}
     .phase-tab{font-size:14px!important;padding:10px 7px 8px!important}
     .phase-tab .phase-sub{font-size:10px!important}
     .seg{font-size:14px!important;padding:13px 16px!important}
@@ -488,6 +526,7 @@
   .gs-sep{color:var(--muted);font-style:normal;padding:0 2px;opacity:.55}
   /* Pot card */
   .pot-card{background:linear-gradient(135deg,#E8B800,#FFD700);border-radius:14px;padding:14px 16px;margin-bottom:10px;text-align:center;color:#1a1200;box-shadow:0 2px 12px rgba(255,215,0,.4)}
+  .pot-card .pot-title{font-size:13px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
   .pot-card .pot-amt{font-size:24px;font-weight:900;font-family:var(--mono);letter-spacing:-.01em}
   .pot-card .pot-sub{font-size:12px;font-weight:700;opacity:.7;margin-top:2px}
   /* Scoring key */
@@ -741,9 +780,35 @@
     font-family:var(--ui);letter-spacing:0}
   #winnerPotCard{background:#CFE3F6;color:#0d2d4a;box-shadow:0 1px 5px rgba(43,121,199,.18)}
   #gbPotCard{background:#F3DD8C;color:#3a2c00;box-shadow:0 1px 5px rgba(201,162,39,.22)}
+  .gbw-live-card{display:flex;align-items:center;justify-content:center;
+    border:1.5px solid #C9A227;border-radius:12px;background:var(--surface);
+    padding:12px 14px;margin:-2px auto 10px;max-width:280px;cursor:pointer;color:var(--paper);
+    box-shadow:0 1px 5px rgba(201,162,39,.14);font-family:var(--ui);text-align:center}
+  .gbw-live-card:active{transform:translateY(1px);background:var(--surface-2)}
+  .gbw-live-title{display:block;font-size:14px;font-weight:850;color:#8A6815}
+  .gbw-lb-card{display:block;width:100%;text-align:left;border:1px solid var(--line-2);
+    border-radius:11px;background:var(--surface);color:var(--paper);padding:12px;
+    margin-bottom:8px;font-family:var(--ui);cursor:pointer}
+  .gbw-lb-card.live{background:var(--green-dim);border-color:rgba(52,194,108,.45)}
+  .gbw-lb-card:active{background:var(--surface-2)}
+  .gbw-lb-card.live:active{background:color-mix(in srgb,var(--green) 16%,var(--surface))}
+  .gbw-lb-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .gbw-lb-name{font-size:15px;font-weight:800;min-width:0}
+  .gbw-lb-rank{font-size:12px;font-weight:900;color:var(--muted);white-space:nowrap}
+  .gbw-lb-rank.live{color:var(--green)}
+  .gbw-lb-pick{font-size:13px;font-weight:750;margin-top:5px;color:var(--paper)}
+  .gbw-lb-sub{font-size:11.5px;font-weight:650;margin-top:3px;color:var(--blue)}
+  .gbw-lb-wager{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;
+    border-top:1px solid var(--line);padding:10px 2px}
+  .gbw-lb-wager:first-child{border-top:none}
+  .gbw-lb-wager .p{display:block;font-size:13px;font-weight:800;color:var(--paper)}
+  .gbw-lb-wager .m{display:block;font-size:11.5px;font-weight:700;color:var(--muted);margin-top:2px}
+  .gbw-lb-empty{font-size:13px;color:var(--muted);text-align:center;padding:20px 8px}
   @media(prefers-color-scheme:dark){
     #winnerPotCard{background:#1C3A52;color:#BFDBF5}
     #gbPotCard{background:#3D3110;color:#F0D27A}
+    .gbw-live-card{background:#242014;border-color:#7E661D;box-shadow:0 1px 5px rgba(0,0,0,.18)}
+    .gbw-live-title{color:#F0D27A}
   }
   .bb-placeholder{color:var(--faint);font-size:13px;text-align:center;padding:30px 10px;
     background:var(--surface);border:1px solid var(--line-2);border-radius:10px;opacity:.85}
@@ -1059,7 +1124,7 @@
       <div class="phase-card group" id="phaseCard">
         <div class="tabs">
           <button class="tab active" data-tab="schedule">Schedule</button>
-          <button class="tab" data-tab="table">Participants</button>
+          <button class="tab" data-tab="table">Match Leaderboard</button>
           <button class="tab" data-tab="bonus" id="bonusTab"><span class="gs-new">new</span>Tournament</button>
           <button class="tab" data-tab="log">Activity</button>
         </div>
@@ -1111,10 +1176,10 @@
   <div class="view" id="view-bonus">
     <div class="bb-banner" id="bbBanner">Picks LOCK when the KnockOut stage begins</div>
     <div class="bb-subtabs">
-      <button class="bb-subtab active" data-bbsub="winner"><span class="gs-new">new</span>🏆 World Cup Winner</button>
-      <button class="bb-subtab" data-bbsub="goldenboot"><span class="gs-new">new</span><img class="bb-subtab-icon" src="golden-boot-icon.png" alt=""> Golden Boot</button>
+      <button class="bb-subtab" data-bbsub="winner"><span class="gs-new">new</span>🏆 World Cup Winner</button>
+      <button class="bb-subtab active" data-bbsub="goldenboot"><span class="gs-new">new</span><img class="bb-subtab-icon" src="golden-boot-icon.png" alt=""> Golden Boot</button>
     </div>
-    <div class="bb-sub-view active" id="bbsub-winner">
+    <div class="bb-sub-view" id="bbsub-winner">
       <div class="pot-card" id="winnerPotCard"></div>
       <div class="bbw-toggle">
         <button class="bbw-tgl active" data-bbwview="country">By Country</button>
@@ -1123,8 +1188,11 @@
       <div id="bbwCountryView"></div>
       <div id="bbwWagererView" style="display:none"></div>
     </div>
-    <div class="bb-sub-view" id="bbsub-goldenboot">
+    <div class="bb-sub-view active" id="bbsub-goldenboot">
       <div class="pot-card" id="gbPotCard"></div>
+      <button type="button" class="gbw-live-card" id="gbwLiveLeaderboardBtn">
+        <span class="gbw-live-title">Live Golden Boot Leaderboard</span>
+      </button>
       <div class="bbw-toggle gbw-toggle">
         <button class="bbw-tgl gbw-tgl active" data-gbwview="player">By Player</button>
         <button class="bbw-tgl gbw-tgl" data-gbwview="wagerer">By Wagerer</button>
@@ -1644,7 +1712,7 @@ function renderScoreStatus(){
   }
 }
 
-/* ---------- Copy Recent Wagers (admin-only for now — see macro rule) ---------- */
+/* ---------- Copy Recent Wagers ---------- */
 const CRW_WINDOW_MS = 3 * 60 * 60 * 1000; // fixed 3-hour lookback, no chain logic
 
 function crwQualifyingEvents(){
@@ -2186,6 +2254,88 @@ function gbwPlayersWithPicks(){
   return byPlayer;
 }
 
+function gbwLivePlayerStatus(player){
+  const src = gbwFindSourceRow(player);
+  const hydrated = gbwHydratePlayer(player);
+  const rawRank = src && src.rank != null && src.rank !== "" ? +src.rank : null;
+  const rank = Number.isFinite(rawRank) ? rawRank : null;
+  const rawGoals = src && src.goals != null && src.goals !== "" ? +src.goals : (hydrated.goals || 0);
+  const goals = Number.isFinite(rawGoals) ? rawGoals : 0;
+  const team = src && src.team ? src.team : hydrated.team;
+  return Object.assign({}, hydrated, {
+    team,
+    code: teamCode(team),
+    rank,
+    rankValue: rank != null ? rank : Number.POSITIVE_INFINITY,
+    goals
+  });
+}
+
+function gbwLiveRankText(p){
+  return p.rank != null ? `#${p.rank} · ${p.goals || 0} GLS` : `not currently ranked · ${p.goals || 0} GLS`;
+}
+
+function gbwLiveLeaderboardRows(){
+  const players = gbwAllPlayerMap();
+  return STATE.members
+    .map(m=>{
+      const picks = bonusGoldenBootPlayersFor(m.id)
+        .map(p => gbwLivePlayerStatus(players[p.key] || p))
+        .sort((a,b)=>
+          a.rankValue-b.rankValue
+          || (b.goals || 0)-(a.goals || 0)
+          || (a.shortName || a.name || "").localeCompare(b.shortName || b.name || "")
+        );
+      return { member:m, picks, best:picks[0] || null };
+    })
+    .filter(r => r.picks.length)
+    .sort((a,b)=>
+      a.best.rankValue-b.best.rankValue
+      || a.picks.length-b.picks.length
+      || a.member.name.localeCompare(b.member.name)
+    );
+}
+
+function renderGoldenBootLeaderboardCard(){
+  const btn = $("#gbwLiveLeaderboardBtn");
+  if(!btn) return;
+  btn.onclick = showGoldenBootLeaderboard;
+}
+
+function showGoldenBootLeaderboard(){
+  const rows = gbwLiveLeaderboardRows();
+  const body = rows.length ? rows.map((r,i)=>{
+    const best = r.best;
+    const live = best.rank === 1;
+    return `<button type="button" class="gbw-lb-card${live?' live':''}" data-gbw-lb-owner="${r.member.id}">`
+      + `<div class="gbw-lb-row"><span class="gbw-lb-name">${i+1}. ${esc(r.member.name)}</span></div>`
+      + `<div class="gbw-lb-pick">${gbwPlayerLabel(best)} · ${gbwLiveRankText(best)}</div>`
+      + `<div class="gbw-lb-sub">${r.picks.length} active wager${r.picks.length!==1?'s':''}</div>`
+      + `</button>`;
+  }).join("") : `<div class="gbw-lb-empty">No Golden Boot wagers yet.</div>`;
+  openSheet(`<h2>Live Golden Boot Leaderboard</h2>`
+    + `<div class="sub">Read-only</div>`
+    + body);
+  document.querySelectorAll("#sheet [data-gbw-lb-owner]").forEach(el=>{
+    el.onclick = ()=>showGoldenBootLeaderboardDetail(el.dataset.gbwLbOwner);
+  });
+}
+
+function showGoldenBootLeaderboardDetail(ownerId){
+  const row = gbwLiveLeaderboardRows().find(r => r.member.id === ownerId);
+  if(!row) return showGoldenBootLeaderboard();
+  const wagers = row.picks.map(p=>
+    `<div class="gbw-lb-wager"><span><span class="p">${gbwPlayerLabel(p)}</span>`
+    + `<span class="m">${gbwLiveRankText(p)}</span></span></div>`
+  ).join("");
+  openSheet(`<h2>${esc(row.member.name)}</h2>`
+    + `<div class="sub">Read-only wagers</div>`
+    + `<div>${wagers}</div>`
+    + `<div class="row" style="margin-top:12px"><button id="gbwLbBack" style="flex:1">Back to leaderboard</button></div>`);
+  const back = $("#gbwLbBack");
+  if(back) back.onclick = showGoldenBootLeaderboard;
+}
+
 function renderGoldenBootPlayerView(){
   const el = $("#gbwPlayerView");
   if(!el) return;
@@ -2559,11 +2709,20 @@ function copyRecentWagers(){
     .filter(e => e.type !== "delete")
     .sort((a,b) => new Date(a.t) - new Date(b.t));
 
-  // Everything in the window ended up cleared — nothing worth sharing. Don't
-  // copy an empty-feeling message (and definitely don't tell the user to
-  // paste it into the group); just inform them inline and stop.
+  // Everything in the window ended up cleared — nothing worth sharing. Clear
+  // the clipboard (same rule as per-match copy v55) so stale content from a
+  // prior copy (match modal entry, CRW empty case, or explicit 📋 on 0 wagers)
+  // can't survive paste.
   if(!currentMatches.length && !currentWinner.length && !currentGoldenBoot.length){
-    toast("No active wagers to share right now", 4000);
+    navigator.clipboard.writeText("").then(()=>{
+      toast("No active wagers to share — clipboard cleared", 4000);
+    }).catch(()=>{
+      const ta=document.createElement("textarea");
+      ta.value=""; document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy");
+      document.body.removeChild(ta);
+      toast("No active wagers to share — clipboard cleared", 4000);
+    });
     return;
   }
 
@@ -2617,7 +2776,7 @@ function renderLeaderboard(){
   const totalWagers = Object.values(STATE.wagers).reduce((s,m)=>s+Object.keys(m).length,0);
   const pot = totalWagers * 100;
   const potEl=$("#potCard");
-  if(potEl) potEl.innerHTML=`<div class="pot-amt">Total Pot = INR ${pot.toLocaleString('en-IN')}</div><div class="pot-sub">${totalWagers} wager${totalWagers!==1?'s':''} placed · ₹100 each</div>`;
+  if(potEl) potEl.innerHTML=`<div class="pot-title">Match Leaderboard</div><div class="pot-amt">Total Pot = INR ${pot.toLocaleString('en-IN')}</div><div class="pot-sub">${totalWagers} wager${totalWagers!==1?'s':''} placed · ₹100 each</div>`;
 
   // Payout splits for top 3
   const splits=[0.5,0.3,0.2];
@@ -2876,7 +3035,7 @@ function renderLog(){
   // (new/edit/delete). System entries (refresh/result/member-added) carry no
   // owner and are intentionally excluded from "Me" — it's a "what I did" view,
   // not pool-wide noise. They remain visible in "All".
-  const filtered = LOGFILTER==="all" ? depth : depth.filter(e => e.owner===acting);
+  const filtered = LOGFILTER==="all" ? depth : depth.filter(e => String(e.owner)===String(acting));
 
   if(!filtered.length){
     $("#logfeed").innerHTML = '<div class="empty">'
@@ -2936,6 +3095,7 @@ function renderAll(){
 
 function renderTournamentSurface(){
   renderSafe("Tournament pot", renderBonusPot);
+  renderSafe("Golden Boot leaderboard", renderGoldenBootLeaderboardCard);
   renderSafe("Tournament", renderBonusWinnerCountryView, "bbwCountryView");
   renderSafe("Tournament", renderBonusWinnerWagererView, "bbwWagererView");
   renderSafe("Golden Boot", renderGoldenBootPlayerView, "gbwPlayerView");
@@ -2968,6 +3128,7 @@ function applyLogResponse(r){
   logFull = false;
   LOGVIEW = "recent";
   updateCopyRecentWagersBtn();
+  renderLog();
 }
 
 /* ---------- Sheet (modal) ---------- */
@@ -2976,13 +3137,22 @@ function closeSheet(){ $("#sheet").classList.remove("show"); $("#scrim").classLi
 $("#scrim").onclick=closeSheet;
 
 /* ---------- Match sheet ---------- */
+// Silent wipe — no toast. Used on match-modal first entry so stale clipboard
+// content can't be pasted by mistake; explicit copy buttons use toast instead.
+function clearClipboardSilent(){
+  navigator.clipboard.writeText("").catch(()=>{
+    const ta=document.createElement("textarea");
+    ta.value=""; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy");
+    document.body.removeChild(ta);
+  });
+}
+
 // Shared by both the Schedule-card copy icon and the match-detail sheet's
 // copy icon — builds a plain-text summary (match info + all current wagers)
 // and copies it to the clipboard, for pasting into WhatsApp.
-// silent=true suppresses the toast — used for the automatic bootstrap-on-
-// modal-open (the user didn't explicitly ask to copy, so no need to tell
-// them something happened); silent=false/omitted is used by the actual
-// "Copy all Wagers" button tap, which should always confirm visibly.
+// silent=true suppresses the toast (empty-match clear only); silent=false/
+// omitted is used by the explicit "Copy wagers for match" button tap.
 function copyMatchWagersToClipboard(n, silent){
   const m=elFor(n); if(!m) return;
   const wgs=STATE.wagers[n]||{}; const owners=Object.keys(wgs);
@@ -3026,7 +3196,7 @@ function copyMatchWagersToClipboard(n, silent){
   });
 }
 
-function openMatch(n, preloadOwner){
+function openMatch(n, preloadOwner, reopen){
   const m=elFor(n); const r=matchResult(n); const locked=isLocked(m);
   const wgs = STATE.wagers[n]||{};
   const owners = Object.keys(wgs);
@@ -3138,12 +3308,11 @@ function openMatch(n, preloadOwner){
   list+=`</div><div style="height:24px"></div>`;
 
   openSheet(head+scoreBlk+form+list);
-  // Bootstrap the clipboard with THIS match's current state the instant the
-  // modal opens — not just when "Copy all Wagers" is explicitly tapped.
-  // Ensures no dangling clipboard content survives from a previously-opened,
-  // unrelated match; opening any match always reflects its real current
-  // wagers (or clears the clipboard if there are none) immediately.
-  copyMatchWagersToClipboard(n, true);
+  // First entry only (not save/clear re-render): silently clear clipboard so
+  // stale content from a prior copy can't survive an accidental paste. Reverses
+  // v56 bootstrap (which wrote all match wagers here — confusing for non-admins).
+  // To share: explicit 📋 or Copy Recent Wagers.
+  if(!reopen) clearClipboardSilent();
   // Tap an existing wager row to load it into the form for editing —
   // admins can tap ANY row (proxy-edit); non-admins only their own.
   document.querySelectorAll("[data-tapowner]").forEach(row=>row.onclick=()=>{
@@ -3190,7 +3359,7 @@ function openMatch(n, preloadOwner){
         if(r.wagers) STATE.wagers = mergeWagers(r.wagers);
         applyLogResponse(r);
         toast("Wager removed");
-        renderAll(); renderActing(); openMatch(n); // re-render so the row disappears
+        renderAll(); renderActing(); openMatch(n, undefined, true); // re-render so the row disappears
         return;
       } finally {
         SAVE_IN_FLIGHT = false;
@@ -3242,7 +3411,7 @@ function saveWager(n, locked){
     if(r.wagers) STATE.wagers = mergeWagers(r.wagers);
     applyLogResponse(r);
     toast(isProxy ? `Saved for ${memberName(ownerId)} — logged` : "Wager saved");
-    renderAll(); renderActing(); openMatch(n);
+    renderAll(); renderActing(); openMatch(n, undefined, true);
   }).finally(()=>{
     SAVE_IN_FLIGHT = false;
     // btn itself may no longer exist (openMatch() re-rendered the sheet on
@@ -3368,43 +3537,217 @@ function addMember(){
 }
 
 /* ---------- Export ---------- */
-function exportCSV(){
-  const totalWagers = Object.values(STATE.wagers).reduce((s,m)=>s+Object.keys(m).length,0);
-  if(totalWagers===0){ toast("Data still loading — try again in a moment"); return; }
-  const q = v => `"${String(v).replace(/"/g,'""')}"`;
-  const lines=[["Match-#","Date","Group","Home","Away","Owner","Pick-Home","Pick-Away","Result-Home","Result-Away","Points","Entered-by","Backfill"].join(",")];
-  let count=0;
-  for(const n in STATE.wagers){
-    const m=elFor(+n); if(!m) continue;
+function exportTimestampPdt(){
+  const d = new Date(Date.now() + TZS.PDT.off*60000);
+  const pad = n => String(n).padStart(2,"0");
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}-${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}-PDT`;
+}
+
+function csvCell(v){
+  return `"${String(v==null ? "" : v).replace(/"/g,'""')}"`;
+}
+
+function csvRows(headers, rows){
+  return [headers, ...rows].map(row => row.map(csvCell).join(",")).join("\n");
+}
+
+function buildMatchWagersCsv(){
+  const rows = [];
+  Object.keys(STATE.wagers || {}).sort((a,b)=>+a-+b).forEach(n=>{
+    const m=elFor(+n); if(!m) return;
     const r=matchResult(+n);
-    for(const oid in STATE.wagers[n]){
-      const w=STATE.wagers[n][oid]; if(!w) continue;
-      const p=scoreWager(w,r); const dd=disp(m.koUTC);
-      lines.push([
+    const dd=disp(m.koUTC);
+    Object.keys(STATE.wagers[n] || {}).sort((a,b)=>memberName(a).localeCompare(memberName(b))).forEach(oid=>{
+      const w=STATE.wagers[n][oid]; if(!w) return;
+      const p=scoreWager(w,r);
+      rows.push([
         m.n,
-        q(`${dd.date} ${dd.time} ${dd.tz}`),
+        `${dd.date} ${dd.time} ${dd.tz}`,
         m.group,
-        q(m.a),
-        q(m.b),
-        q(memberName(oid)),
-        w.a, w.b,
-        r ? r.a : "", r ? r.b : "",
+        m.a,
+        m.b,
+        memberName(oid),
+        w.a,
+        w.b,
+        r ? r.a : "",
+        r ? r.b : "",
         p===null ? "" : p,
-        q(memberName(w.by)),
+        memberName(w.by),
         w.backfill ? "yes" : ""
-      ].join(","));
-      count++;
-    }
+      ]);
+    });
+  });
+  return {
+    count: rows.length,
+    csv: csvRows(["Match-#","Date","Group","Home","Away","Owner","Pick-Home","Pick-Away","Result-Home","Result-Away","Points","Entered-by","Backfill"], rows)
+  };
+}
+
+function buildWorldCupWinnerCsv(){
+  const rows = [];
+  Object.keys(STATE.bonusWinnerPicks || {}).sort((a,b)=>memberName(a).localeCompare(memberName(b))).forEach(oid=>{
+    bonusWinnerTeamsFor(oid).slice().sort((a,b)=>a.localeCompare(b)).forEach(team=>{
+      rows.push([memberName(oid), team, teamCode(team)]);
+    });
+  });
+  return {
+    count: rows.length,
+    csv: csvRows(["Owner","Team","Team-Code"], rows)
+  };
+}
+
+function buildGoldenBootCsv(){
+  const players = gbwAllPlayerMap();
+  const rows = [];
+  Object.keys(STATE.bonusGoldenBootPicks || {}).sort((a,b)=>memberName(a).localeCompare(memberName(b))).forEach(oid=>{
+    bonusGoldenBootPlayersFor(oid)
+      .map(p => players[p.key] || gbwHydratePlayer(p))
+      .sort((a,b)=>(a.shortName||a.name||"").localeCompare(b.shortName||b.name||""))
+      .forEach(p=>{
+        rows.push([
+          memberName(oid),
+          p.key || "",
+          p.fullName || p.name || p.shortName || "",
+          p.shortName || p.name || "",
+          p.team || "",
+          p.code || teamCode(p.team || ""),
+          p.goals != null ? p.goals : "",
+          p.rank != null ? p.rank : "",
+          p.fifaPersonId || ""
+        ]);
+      });
+  });
+  return {
+    count: rows.length,
+    csv: csvRows(["Owner","Player-Key","Player-Name","Short-Name","Team","Team-Code","Goals","Rank","Fifa-Person-Id"], rows)
+  };
+}
+
+function buildTopScorersCsv(){
+  const rows = currentTopScorersBoard().map(s=>[
+    s.rank != null ? s.rank : "",
+    s.name || "",
+    s.team || "",
+    s.goals != null ? s.goals : "",
+    s.assists != null ? s.assists : "",
+    s.minutes != null ? s.minutes : "",
+    s.mp != null ? s.mp : "",
+    s.fifaPersonId || ""
+  ]);
+  return {
+    count: rows.length,
+    csv: csvRows(["rank","name","team","goals","assists","minutes","mp","fifaPersonId"], rows)
+  };
+}
+
+const ZIP_CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for(let n=0;n<256;n++){
+    let c=n;
+    for(let k=0;k<8;k++) c = (c&1) ? (0xEDB88320 ^ (c>>>1)) : (c>>>1);
+    table[n]=c>>>0;
   }
-  const csv=lines.join("\n");
-  openSheet(`<h2>Export</h2><div class="sub">${count} wager${count!==1?'s':''} exported as CSV.</div>
-    <a id="dl" class="btn" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px">Download CSV</a>
-    <textarea class="exp" readonly>${csv.replace(/</g,"&lt;")}</textarea>`);
+  return table;
+})();
+
+function zipCrc32(bytes){
+  let c = 0xFFFFFFFF;
+  for(let i=0;i<bytes.length;i++) c = ZIP_CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function zipDosTime(date){
+  const time = (date.getHours()<<11) | (date.getMinutes()<<5) | Math.floor(date.getSeconds()/2);
+  const dosDate = ((date.getFullYear()-1980)<<9) | ((date.getMonth()+1)<<5) | date.getDate();
+  return { time, date: dosDate };
+}
+
+function u16(n){ return [n&255,(n>>>8)&255]; }
+function u32(n){ return [n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255]; }
+
+function makeZipBlob(files){
+  const enc = new TextEncoder();
+  const now = zipDosTime(new Date());
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  files.forEach(file=>{
+    const nameBytes = enc.encode(file.name);
+    const data = enc.encode(file.csv);
+    const crc = zipCrc32(data);
+    const local = new Uint8Array([
+      ...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0),
+      ...u16(now.time), ...u16(now.date), ...u32(crc),
+      ...u32(data.length), ...u32(data.length), ...u16(nameBytes.length), ...u16(0)
+    ]);
+    chunks.push(local, nameBytes, data);
+    central.push({
+      nameBytes, crc, size:data.length, offset,
+      header:new Uint8Array([
+        ...u32(0x02014b50), ...u16(0x0314), ...u16(20), ...u16(0), ...u16(0),
+        ...u16(now.time), ...u16(now.date), ...u32(crc),
+        ...u32(data.length), ...u32(data.length), ...u16(nameBytes.length),
+        ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0)
+      ])
+    });
+    offset += local.length + nameBytes.length + data.length;
+  });
+  const centralStart = offset;
+  central.forEach(entry=>{
+    const tail = new Uint8Array([...u32(entry.offset)]);
+    chunks.push(entry.header, tail, entry.nameBytes);
+    offset += entry.header.length + tail.length + entry.nameBytes.length;
+  });
+  const centralSize = offset - centralStart;
+  chunks.push(new Uint8Array([
+    ...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length),
+    ...u32(centralSize), ...u32(centralStart), ...u16(0)
+  ]));
+  return new Blob(chunks,{type:"application/zip"});
+}
+
+function downloadBlob(blob, name){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=name;
+  a.style.display="none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 30000);
+}
+
+function exportCSV(){
+  if(!STATE){ toast("Data still loading — try again in a moment"); return; }
+  const stamp = exportTimestampPdt();
+  const match = buildMatchWagersCsv();
+  const wcw = buildWorldCupWinnerCsv();
+  const gb = buildGoldenBootCsv();
+  const top = buildTopScorersCsv();
+  const files = [
+    { key:"matches", label:"Match wagers", name:`l84-matches-wagers-${stamp}.csv`, count:match.count, csv:match.csv },
+    { key:"wcw", label:"World Cup Winner wagers", name:`l84-world-cup-winner-wagers-${stamp}.csv`, count:wcw.count, csv:wcw.csv },
+    { key:"gb", label:"Golden Boot wagers", name:`l84-golden-boot-wagers-${stamp}.csv`, count:gb.count, csv:gb.csv },
+    { key:"top", label:"Top Scorers", name:`l84-top-scorers-${stamp}.csv`, count:top.count, csv:top.csv }
+  ];
+  const zipName = `l84-export-${stamp}.zip`;
+  const downloadZip = ()=>downloadBlob(makeZipBlob(files), zipName);
+  openSheet(`<h2>Export</h2><div class="sub">Downloading ${esc(zipName)}</div>`
+    + `<button id="downloadAllCsvBtn" class="btn" style="width:100%;margin-bottom:10px">Download export ZIP</button>`
+    + `<div class="note" style="margin-bottom:8px">Files:</div>`
+    + `<ul class="note" style="margin-top:0;padding-left:18px">`
+    + files.map(f=>`<li><code>${esc(f.name)}</code> · ${f.count} row${f.count!==1?'s':''}</li>`).join("")
+    + `</ul>`
+    + `<div class="note">The ZIP contains the four CSV artifacts above.</div>`);
+  const retry = $("#downloadAllCsvBtn");
+  if(retry) retry.onclick = downloadZip;
   try{
-    const blob=new Blob([csv],{type:"text/csv"});
-    const url=URL.createObjectURL(blob);
-    const a=$("#dl"); a.href=url; a.download="l84-fifa-2026-wagers.csv";
-  }catch(e){ const a=$("#dl"); if(a) a.style.display="none"; }
+    downloadZip();
+    toast("Export started — ZIP with 4 CSVs", 3000);
+  }catch(e){
+    toast("Couldn't create export ZIP", 4000);
+  }
 }
 
 /* ---------- Tabs ---------- */
