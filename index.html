@@ -1,6 +1,25 @@
 <!DOCTYPE html>
 <!--
   L'84 FIFA 2026 — version log (newest first)
+  v173 · 2026-06-27 · Timezone selector prototype (staging): Schedule row now
+  keeps selected-TZ / Calif / India beside the refresh status, with a
+  mobile-first selector sheet for device timezone, curated pool zones, and
+  Other timezone UTC-offset tiles. Explicit choices persist locally; no
+  backend or lock-time behavior changes.
+  v172 · 2026-06-27 · Match Leaderboard phase reset: pot, standings, and player
+  drilldown are now scoped to Group Phase (M1-M72) or Knockout Phase (M73-M104),
+  so knockout wagering starts with a fresh ₹0 match pot while group history stays
+  available from the Group Phase tab.
+  v170 · 2026-06-27 · Knockout fixture hydration prototype (staging): consume
+  Code.gs koFixtures from FIFA calendar, map labels onto OUR canonical M73-M104,
+  and render KO games through the normal wager-card/modal flow. Slot labels remain
+  the fallback for unresolved sides; openfootball remains score-only. Hardening:
+  escape FIFA-derived labels, preserve KO labels on score fetch failure, and use
+  KO stage names in shared copy text. Venu Nair refreshes request a server-verified
+  force refresh of KO fixtures to bypass stale cache when needed.
+  v169 · 2026-06-26 · Golden Boot: L. Yamal pinned card shows 1 GLS when absent
+  from STATE.topScorers (FIFA page-1 omits him ~rank 85). Once backend board
+  includes him, gbwFindSourceRow wins and this fallback is unused.
   v168 · 2026-06-26 · Match entry: silent per-match clipboard bootstrap (v56)
   replaced with silent clear on first open only — prevents stale/confusing paste
   without copying everyone else's wagers. Save/Clear re-renders skip clear so an
@@ -443,6 +462,48 @@
   .seg.active{background:var(--red); border-color:transparent; color:#fff}
   .seg:active{transform:translateY(1px)}
   .seg.tzseg{padding:6px 12px;font-size:12px;border-radius:8px}
+  .tzrow-main .tzseg{white-space:nowrap}
+  .tz-change{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+  .tz-change:active{background:var(--surface-2)}
+  .tzrow-main [data-tzquick]{background:var(--red);border-color:transparent;color:#fff}
+  .tzrow-main [data-tzquick].active{box-shadow:0 0 0 2px color-mix(in srgb,var(--red) 42%,#fff) inset}
+  #sheet:has(.tz-card-grid),#sheet:has(.tz-offset-grid){
+    background:linear-gradient(180deg,#F4FBFA 0%,var(--surface) 52%)
+  }
+  .tz-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:4px 2px 10px}
+  .tz-card{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;
+    min-height:58px;padding:12px 11px;border:1.5px solid var(--line-2);border-radius:11px;
+    background:var(--surface);color:var(--paper);font-family:var(--ui);cursor:pointer;text-align:left}
+  .tz-card .t{font-size:13.5px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .tz-card .m{font-size:11px;font-weight:750;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .tz-card.active{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue) inset;background:#E9F4FF}
+  .tz-card:active{background:var(--surface-2);transform:translateY(1px)}
+  .tz-card.tz-device{grid-column:1/-1;min-height:54px;background:var(--green-dim);
+    border-color:rgba(28,150,79,.42)}
+  .tz-card.tz-device .t{color:var(--green)}
+  .tz-card.tz-device.active{border-color:var(--green);box-shadow:0 0 0 1px var(--green) inset}
+  .tz-card.tz-curated{background:#F2F7FD;border-color:rgba(43,121,199,.22)}
+  .tz-card.tz-curated.active{border-color:var(--blue);background:#E9F4FF}
+  .tz-other{grid-column:1/-1;border-style:dashed;border-width:2px;color:#7A4CC2;
+    border-color:#A88BE0;align-items:center;text-align:center;background:#F1EAFE}
+  .tz-offset-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:4px 2px 12px}
+  .tz-offset-zero{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr);margin:4px 0}
+  .tz-offset-tile{min-height:44px;border:1.5px solid var(--line-2);border-radius:10px;background:var(--surface);
+    color:var(--paper);font-family:var(--ui);font-size:12.5px;font-weight:850;cursor:pointer}
+  .tz-offset-tile.active{border-color:var(--blue);background:#E9F4FF;color:var(--blue)}
+  .tz-offset-tile:active{background:var(--surface-2);transform:translateY(1px)}
+  .tz-sheet-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+  .tz-sheet-actions.single{grid-template-columns:1fr}
+  .tz-sheet-actions .clear{color:var(--red);border-color:rgba(201,70,47,.35)}
+  @media(prefers-color-scheme:dark){
+    #sheet:has(.tz-card-grid),#sheet:has(.tz-offset-grid){
+      background:linear-gradient(180deg,#102725 0%,var(--surface) 56%)
+    }
+    .tz-card.active,.tz-offset-tile.active{background:#102235}
+    .tz-card.tz-device{background:#153323;border-color:rgba(52,194,108,.42)}
+    .tz-card.tz-curated{background:#182432;border-color:rgba(91,167,232,.22)}
+    .tz-other{background:#251B34;border-color:#8D6CCB;color:#C7B5F4}
+  }
 
   /* ---------- Mobile font boost ---------- */
   @media(max-width:768px){
@@ -466,7 +527,17 @@
     .phase-tab{font-size:14px!important;padding:10px 7px 8px!important}
     .phase-tab .phase-sub{font-size:10px!important}
     .seg{font-size:14px!important;padding:13px 16px!important}
-    .seg.tzseg{font-size:13px!important;padding:9px 13px!important}
+    .seg.tzseg{font-size:12px!important;padding:8px 7px!important}
+    .tzrow-main{gap:4px}
+    .segrow.tzrow .score-status{max-width:42%}
+    .segrow.tzrow .score-state{font-size:9.5px!important}
+    .segrow.tzrow .score-time{font-size:10px!important}
+    .tz-card-grid{gap:7px}
+    .tz-card{min-height:56px;padding:11px 9px}
+    .tz-card .t{font-size:13px}
+    .tz-card .m{font-size:10.5px}
+    .tz-offset-grid{gap:7px}
+    .tz-offset-tile{min-height:42px;font-size:12px}
     .crw-btn{font-size:14px!important;padding:13px 16px!important}
     .actingrow{padding:10px 12px!important}
     .dayhdr .d{font-size:15px!important}
@@ -600,6 +671,7 @@
   .m-meta{font-size:10.5px; color:var(--faint); font-family:var(--mono); margin-left:auto; text-align:right; white-space:nowrap}
   .m-teams{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px}
   .t-name{font-size:13.5px; font-weight:650}
+  .t-seed{margin-top:3px;font-size:10.5px;font-weight:700;color:var(--faint);font-family:var(--mono)}
   .t-code{font-size:11px;font-weight:600;color:var(--faint)}
   .t-name.home{text-align:right}
   .t-name.away{text-align:left}
@@ -672,9 +744,9 @@
   .grab{width:38px;height:4px;border-radius:99px;background:var(--line-2);margin:8px auto 12px}
   .sheet h2{font-size:16px;margin:0 0 2px;padding-right:56px}
   .sheet .sub{font-size:11.5px;color:var(--muted);margin-bottom:14px;padding-right:56px}
-  .closebtn{position:sticky;top:4px;left:100%;transform:translateX(-100%);margin-bottom:-44px;margin-right:-8px;
+  .closebtn{position:sticky;top:4px;left:100%;transform:translateX(-100%);margin-bottom:-50px;margin-right:-8px;
     background:var(--paper);border:1px solid var(--line);
-    color:var(--surface);border-radius:10px;width:42px;height:42px;font-size:22px;cursor:pointer;z-index:8;display:block}
+    color:var(--surface);border-radius:12px;width:48px;height:48px;font-size:27px;cursor:pointer;z-index:8;display:block}
   .closebtn:active{opacity:.7}
 
   .scorebig{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;
@@ -1119,7 +1191,7 @@
     <div class="phase-wrap">
       <div class="phase-tabs">
         <button class="phase-tab active" data-phase="group">Group Phase<span class="phase-sub">Current</span></button>
-        <button class="phase-tab" data-phase="knockout">Knockout Phase<span class="phase-sub">Coming soon</span></button>
+        <button class="phase-tab" data-phase="knockout">Knockout Phase<span class="phase-sub">Open</span></button>
       </div>
       <div class="phase-card group" id="phaseCard">
         <div class="tabs">
@@ -1135,8 +1207,9 @@
   <div class="view active" id="view-schedule">
     <div class="segrow tzrow">
       <div class="tzrow-main">
-        <button class="seg tzseg active" data-tz="PDT">California · PDT</button>
-        <button class="seg tzseg" data-tz="IST">India · IST</button>
+        <button class="seg tzseg tz-change" id="changeTzBtn">Change TZ</button>
+        <button class="seg tzseg" data-tzquick="PDT">Calif</button>
+        <button class="seg tzseg" data-tzquick="IST">India</button>
       </div>
       <div class="score-status stale" id="scoreStatus">
         <span class="score-state"><i class="score-dot"></i><span id="scoreStatusLabel">Not refreshed</span></span>
@@ -1337,10 +1410,10 @@ const KO = [
   [104,"Final","W101","W102","New York","2026-07-19T19:00:00Z"],
 ];
 function slotLabel(code){
-  if(/^\d[A-L]$/.test(code)) return (code[0]==="1"?"Winner ":"Runner-up ")+code[1];
+  if(/^\d[A-L]$/.test(code)) return (code[0]==="1"?"Winner Group ":"Runner-up Group ")+code[1];
   if(/^3[A-L]+$/.test(code)) return "3rd: "+code.slice(1).split("").join("/");
-  if(/^W\d+$/.test(code)) return "Winner M"+code.slice(1);
-  if(/^RU\d+$/.test(code)) return "Loser M"+code.slice(2);
+  if(/^W\d+$/.test(code)) return "Winner Match "+code.slice(1);
+  if(/^RU\d+$/.test(code)) return "Loser Match "+code.slice(2);
   return code;
 }
 
@@ -1354,7 +1427,7 @@ function slotLabel(code){
 const ADMINS = ["Venu Nair","Augustine Chandy","Anil Parameswaran"];
 
 let STATE=null, acting=null;
-let TZSTATE="PDT", SORTBY="pts", LOGFILTER="all", PHASE="group", IDENTITY_CONFIRMED=false, SAVE_IN_FLIGHT=false;
+let TZSTATE="auto", SORTBY="pts", LOGFILTER="all", PHASE="group", IDENTITY_CONFIRMED=false, SAVE_IN_FLIGHT=false;
 // Activity-log depth: "recent" shows the last LOG_LIVE rows, "all" shows the
 // full log (fetched on demand via the Show-all toggle). logFull tracks whether
 // STATE.log currently holds the full log this session. LOG_LIVE must match
@@ -1362,26 +1435,117 @@ let TZSTATE="PDT", SORTBY="pts", LOGFILTER="all", PHASE="group", IDENTITY_CONFIR
 let LOGVIEW="recent", logFull=false;
 const LOG_LIVE=200;
 let dayState={};   // dateLabel -> "open" | "collapsed" (sticky within session)
-const TZS={ PDT:{label:"PDT", off:-420}, IST:{label:"IST", off:330} }; // minutes from UTC
+const TZS={
+  IST:{name:"India",label:"IST",off:330},
+  SGT:{name:"Singapore",label:"SGT",off:480},
+  CEST:{name:"Germany",label:"CEST",off:120},
+  BST:{name:"UK",label:"BST",off:60},
+  EDT:{name:"US Eastern",label:"EDT",off:-240},
+  CDT:{name:"US Central",label:"CDT",off:-300},
+  MDT:{name:"US Mountain",label:"MDT",off:-360},
+  PDT:{name:"US Pacific",label:"PDT",off:-420}
+}; // explicit fixed offsets for the tournament window
+const TZ_FAST=["IST","SGT","CEST","BST","EDT","CDT","MDT","PDT"];
+const TZ_OFFSETS=[-720,-660,-600,-570,-540,-480,-420,-360,-300,-240,-210,-180,-120,-60,0,60,120,180,210,240,270,300,330,345,360,390,420,480,525,540,570,600,630,660,720,765,780,840];
 const _DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const _MONS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function tzOffsetLabel(off){
+  if(off===0) return "UTC+0";
+  const sign=off<0?"-":"+";
+  const abs=Math.abs(off), h=Math.floor(abs/60), m=abs%60;
+  return `UTC${sign}${h}${m?":"+String(m).padStart(2,"0"):""}`;
+}
+function parseTzOffsetKey(key){
+  const m=String(key||"").match(/^UTC([+-])(\d{1,2})(?::(\d{2}))?$/);
+  if(!m) return null;
+  const off=(+m[2])*60+(m[3]?+m[3]:0);
+  if(off>14*60) return null;
+  return (m[1]==="-"?-1:1)*off;
+}
+function normalizeTzKey(key){
+  if(!key || key==="auto") return "auto";
+  if(TZS[key]) return key;
+  return parseTzOffsetKey(key)!==null ? key : "auto";
+}
+function deviceTzLabel(utcMs=Date.now()){
+  try{
+    const part=new Intl.DateTimeFormat("en-US",{timeZoneName:"short"}).formatToParts(new Date(utcMs)).find(p=>p.type==="timeZoneName");
+    return part && part.value ? part.value.replace(/^GMT/,"UTC") : "Device";
+  }catch(e){ return "Device"; }
+}
+function getDisplayTz(utcMs=Date.now()){
+  const key=normalizeTzKey(TZSTATE);
+  if(key==="auto") return {key:"auto",label:deviceTzLabel(utcMs),auto:true};
+  if(TZS[key]) return Object.assign({key,auto:false}, TZS[key]);
+  const off=parseTzOffsetKey(key);
+  return {key,label:tzOffsetLabel(off),name:"Other timezone",off,auto:false};
+}
+function displayDateFor(utcMs){
+  const cfg=getDisplayTz(utcMs);
+  if(cfg.auto){
+    const d=new Date(utcMs);
+    return { d, cfg, day:d.getDay(), month:d.getMonth(), date:d.getDate(), hours:d.getHours(), minutes:d.getMinutes() };
+  }
+  const d=new Date(utcMs+cfg.off*60000);
+  return { d, cfg, day:d.getUTCDay(), month:d.getUTCMonth(), date:d.getUTCDate(), hours:d.getUTCHours(), minutes:d.getUTCMinutes() };
+}
 function disp(koUTC){
-  const d=new Date(new Date(koUTC).getTime()+TZS[TZSTATE].off*60000);
-  let h=d.getUTCHours(); const m=d.getUTCMinutes();
+  const p=displayDateFor(new Date(koUTC).getTime());
+  let h=p.hours; const m=p.minutes;
   const ap=h>=12?"PM":"AM"; let h12=h%12; if(h12===0) h12=12;
-  return { date:`${_DAYS[d.getUTCDay()]}, ${_MONS[d.getUTCMonth()]} ${d.getUTCDate()}`,
-           time:`${h12}:${String(m).padStart(2,"0")} ${ap}`, tz:TZS[TZSTATE].label };
+  return { date:`${_DAYS[p.day]}, ${_MONS[p.month]} ${p.date}`,
+           time:`${h12}:${String(m).padStart(2,"0")} ${ap}`, tz:p.cfg.label };
 }
 function dispCompact(utcMs){
-  const d=new Date(new Date(utcMs).getTime()+TZS[TZSTATE].off*60000);
-  let h=d.getUTCHours(); const m=d.getUTCMinutes();
+  const p=displayDateFor(utcMs);
+  let h=p.hours; const m=p.minutes;
   const ap=h>=12?"PM":"AM"; let h12=h%12; if(h12===0) h12=12;
-  return `${_MONS[d.getUTCMonth()]} ${d.getUTCDate()} · ${h12}:${String(m).padStart(2,"0")} ${ap} ${TZS[TZSTATE].label}`;
+  return `${_MONS[p.month]} ${p.date} · ${h12}:${String(m).padStart(2,"0")} ${ap} ${p.cfg.label}`;
 }
 
 /* ---------- Helpers ---------- */
 const $=s=>document.querySelector(s);
-const elFor=n=>MATCHES.find(m=>m.n===n);
+const koFixture=n=>((STATE&&STATE.koFixtures)||{})[n]||null;
+function isKoSlotCode(v){ return /^(?:[12][A-L]|3[A-L]+|W\d+|RU\d+)$/.test(String(v||"")); }
+function koSide(k, side){
+  const h=koFixture(k[0]);
+  const code = side==="a" ? k[2] : k[3];
+  const fifa = h && h[side];
+  return (fifa && !isKoSlotCode(fifa)) ? fifa : (resolveSlot(code) || slotLabel(code));
+}
+function koSideResolved(k, side){
+  const h=koFixture(k[0]);
+  const code = side==="a" ? k[2] : k[3];
+  const fifa = h && h[side];
+  return !!(fifa && !isKoSlotCode(fifa)) || !!resolveSlot(code);
+}
+function koAsMatch(k){
+  const aResolved = koSideResolved(k,"a"), bResolved = koSideResolved(k,"b");
+  return { n:k[0], group:k[1], a:koSide(k,"a"), b:koSide(k,"b"),
+           city:k[4], venue:k[4], dl:"", tm:"", koUTC:k[5], knockout:true,
+           aSlot:k[2], bSlot:k[3],
+           aResolved, bResolved, koResolved: aResolved && bResolved };
+}
+function compactTeamHTML(name, resolved){
+  return resolved
+    ? `${teamFlag(name)} ${esc(teamCode(name))}`
+    : esc(name);
+}
+function koSourceHTML(code, round){
+  if(round === "R32") return "";
+  const m = String(code||"").match(/^(?:W|RU)(\d+)$/);
+  if(!m) return "";
+  const src = elFor(+m[1]);
+  if(!src) return "";
+  return `<div class="t-seed">${compactTeamHTML(src.a, !src.knockout || src.aResolved)} v ${compactTeamHTML(src.b, !src.knockout || src.bResolved)}</div>`;
+}
+function teamNameHTML(m, side){
+  const name = m[side], resolved = !m.knockout || m[side+"Resolved"];
+  return resolved
+    ? `${teamFlag(name)} ${esc(name)} <span class="t-code">(${esc(teamCode(name))})</span>`
+    : `${esc(name)}${koSourceHTML(m[side+"Slot"], m.group)}`;
+}
+const elFor=n=>MATCHES.find(m=>m.n===n) || (koMatchById(n)?koAsMatch(koMatchById(n)):null);
 const memberName=id=>{const m=STATE.members.find(x=>x.id===id);return m?m.name:"?";};
 function isLocked(m){ return Date.now() >= new Date(m.koUTC).getTime(); }
 function matchResult(n){ return STATE.results[n]||null; }
@@ -1394,8 +1558,9 @@ function scoreWager(p, r){
   return (outcome?3:0)+(line?3:0);
 }
 function fmtClock(ts){
-  const d=new Date(ts);
-  return d.toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+  const p=displayDateFor(new Date(ts).getTime());
+  let h=p.hours; const ap=h>=12?"PM":"AM"; h=h%12||12;
+  return `${_MONS[p.month]} ${p.date}, ${h}:${String(p.minutes).padStart(2,"0")} ${ap}`;
 }
 function toast(msg, duration=2200){
   const t=$("#toast"); t.textContent=msg; t.classList.add("show");
@@ -1403,10 +1568,18 @@ function toast(msg, duration=2200){
 }
 
 /* ---------- Standings ---------- */
-function standings(){
+function matchInPhase(n, phase=PHASE){
+  n = +n;
+  return phase === "knockout" ? n >= 73 : n <= 72;
+}
+function phaseMatchLabel(phase=PHASE){
+  return phase === "knockout" ? "Knockout Match Leaderboard" : "Group Match Leaderboard";
+}
+function standings(phase=PHASE){
   const rows = STATE.members.map(m=>({id:m.id,name:m.name,pts:0,w6:0,w3:0,l:0,pending:0,placed:0}));
   const byId=Object.fromEntries(rows.map(r=>[r.id,r]));
   for(const n in STATE.wagers){
+    if(!matchInPhase(n, phase)) continue;
     const r=matchResult(+n);
     for(const owner in STATE.wagers[n]){
       const row=byId[owner]; if(!row) continue;
@@ -1580,6 +1753,12 @@ function applyTopScorersResponse(r){
   }
 }
 
+function applyKoFixturesResponse(r){
+  if(r && r.koFixtures) STATE.koFixtures = r.koFixtures || {};
+  if(r && r.koFixturesSource && memberName(acting)==="Venu Nair")
+    console.log("[L84] KO fixtures", { source: r.koFixturesSource, forced: !!r.koFixturesForced, count: Object.keys(r.koFixtures||{}).length });
+}
+
 function initLiveWarm(isStale){
   if(!TOKEN) return Promise.resolve();
   const tasks = [];
@@ -1589,8 +1768,9 @@ function initLiveWarm(isStale){
       STATE.results = Object.fromEntries(
         Object.entries(r.results).map(([k,v]) => [+k, v])
       );
+      applyKoFixturesResponse(r);
       applyLogResponse(r);
-      STATE.lastRefresh = Date.now();
+      if(!r.scoreError) STATE.lastRefresh = Date.now();
       renderScoreStatus();
       renderAll();
     }).catch(() => {}));
@@ -2172,12 +2352,16 @@ function gbwHydratePlayer(player){
   const src = gbwFindSourceRow(player);
   const fullName = player.fullName || player.name || player.shortName || "";
   const shortName = player.shortName || gbwShortNameFromSource(fullName);
+  let goals = src && src.goals != null ? +src.goals : (player.goals || 0);
+  // FIFA page-1 feed omits L. Yamal (~rank 85) from STATE.topScorers. Pinned
+  // card shows 1 GLS until the backend board includes him — then src wins.
+  if (player.key === "lamine-yamal" && !src) goals = 1;
   return Object.assign({}, player, {
     fullName,
     shortName,
     name: fullName,
     code: teamCode(player.team),
-    goals: src && src.goals != null ? +src.goals : (player.goals || 0),
+    goals,
     rank: src ? src.rank : (player.rank != null ? player.rank : null)
   });
 }
@@ -2654,16 +2838,11 @@ function renderBonusPot(){
 }
 
 function crwFmtDateTime(ts){
-  // Must use the app's SELECTED timezone (TZSTATE), not the device's own
-  // local timezone — getHours()/getMinutes() on a bare Date object reads
-  // device-local time, which can silently diverge from the tzLabel this
-  // value gets displayed next to. Mirrors disp()'s correct technique:
-  // apply the offset manually, then read UTC fields.
-  const d = new Date(new Date(ts).getTime() + TZS[TZSTATE].off*60000);
-  const day = String(d.getUTCDate()).padStart(2,'0');
-  const mon = _MONS[d.getUTCMonth()];
-  let h = d.getUTCHours(), ampm = h>=12?'pm':'am'; h = h%12||12;
-  const mm = String(d.getUTCMinutes()).padStart(2,'0');
+  const p = displayDateFor(new Date(ts).getTime());
+  const day = String(p.date).padStart(2,'0');
+  const mon = _MONS[p.month];
+  let h = p.hours, ampm = h>=12?'pm':'am'; h = h%12||12;
+  const mm = String(p.minutes).padStart(2,'0');
   return { dm:`${day}-${mon}`, time:`${h}:${mm}${ampm}` };
 }
 
@@ -2679,7 +2858,7 @@ function copyRecentWagers(){
   // plus grouped Tournament rows, there's nothing left to disambiguate.
   const rawEvents = crwQualifyingEvents();
   if(!rawEvents.length) return; // shouldn't happen if button correctly hidden
-  const tzLabel = TZS[TZSTATE].label;
+  const tzLabel = getDisplayTz(Date.now()).label;
 
   // header range still spans the FULL raw window (earliest raw event → now),
   // even though some of that activity may collapse away below — the range
@@ -2769,14 +2948,14 @@ function copyRecentWagers(){
   });
 }
 function renderLeaderboard(){
-  const ranked=standings();
+  const ranked=standings(PHASE);
   ranked.forEach((r,i)=>r.rank=i+1);
 
   // Pot card
-  const totalWagers = Object.values(STATE.wagers).reduce((s,m)=>s+Object.keys(m).length,0);
+  const totalWagers = Object.entries(STATE.wagers).reduce((s,[n,m])=>matchInPhase(n, PHASE)?s+Object.keys(m).length:s,0);
   const pot = totalWagers * 100;
   const potEl=$("#potCard");
-  if(potEl) potEl.innerHTML=`<div class="pot-title">Match Leaderboard</div><div class="pot-amt">Total Pot = INR ${pot.toLocaleString('en-IN')}</div><div class="pot-sub">${totalWagers} wager${totalWagers!==1?'s':''} placed · ₹100 each</div>`;
+  if(potEl) potEl.innerHTML=`<div class="pot-title">${phaseMatchLabel(PHASE)}</div><div class="pot-amt">Total Pot = INR ${pot.toLocaleString('en-IN')}</div><div class="pot-sub">${totalWagers} wager${totalWagers!==1?'s':''} placed · ₹100 each</div>`;
 
   // Payout splits for top 3
   const splits=[0.5,0.3,0.2];
@@ -2817,6 +2996,7 @@ function renderLeaderboard(){
 }
 function statusOf(m){
   if(matchResult(m.n)) return "played";
+  if(m.knockout && !m.koResolved) return "pending";
   return isLocked(m)?"locked":"open";
 }
 const RULES_URL = ""; // production: set to the hosted PDF link; if empty the in-app rules page opens
@@ -2863,7 +3043,7 @@ function groupTable(letter){
   return {arr, complete: arr.length===4 && arr.every(x=>x.played===3)};
 }
 function koMatchById(n){ return KO.find(k=>k[0]===n); }
-function koTeams(n){ const k=koMatchById(n); return k?[resolveSlot(k[2]),resolveSlot(k[3])]:[null,null]; }
+function koTeams(n){ const k=koMatchById(n); return k?[koSide(k,"a"),koSide(k,"b")]:[null,null]; }
 function koWinner(n){ const r=matchResult(n); if(!r) return null; const [a,b]=koTeams(n); if(!a||!b) return null; return r.a>=r.b?a:b; }
 function koLoser(n){ const r=matchResult(n); if(!r) return null; const [a,b]=koTeams(n); if(!a||!b) return null; return r.a>=r.b?b:a; }
 function resolveSlot(code){
@@ -2875,14 +3055,18 @@ function resolveSlot(code){
 function matchCardHTML(m, dd, rec){
   const st=statusOf(m), r=matchResult(m.n);
   const wc=STATE.wagers[m.n]?Object.keys(STATE.wagers[m.n]).length:0;
+  const phaseLabel = m.knockout ? m.group : "Grp " + m.group;
+  const aName = esc(m.a), bName = esc(m.b), city = esc(m.city);
   const chip = st==="played"?'<span class="chip played">Full-time</span>'
              : st==="open"?'<span class="chip open">Open</span>'
+             : st==="pending"?'<span class="chip locked">Pending</span>'
              : '<span class="chip locked">Locked</span>';
   const mid = r?`<span class="score">${r.a}–${r.b}</span>`:`<span class="vs">v</span>`;
   const wgs = STATE.wagers[m.n]||{};
   const owners = Object.keys(wgs);
   const isAdmin = ADMINS.includes(memberName(acting));
   const peek = `<div class="peek">${
+    st==="pending" && !owners.length ? `<div class="pk-empty">Wagers open when both teams are decided.</div>` :
     owners.length ? `<div class="pk-head"><div>Player · record</div><div>Predicted</div><div>Result</div><div>Pts</div></div>`+owners.map(oid=>{
       const w=wgs[oid]; const pp=scoreWager(w,r);
       const cls = pp===null?'pend':(pp>0?'win':'loss');
@@ -2903,28 +3087,18 @@ function matchCardHTML(m, dd, rec){
         <div class="pp ${cls}">${ptTxt}</div>
       </div>`;
     }).join('') : `<div class="pk-empty">No wagers yet — be the first.</div>`
-  }<button class="pk-cta" data-open="${m.n}">${st==='open'?'Enter a wager':'View Wagers for Match'} →</button></div>`;
+  }${st==="pending" && !owners.length ? "" : `<button class="pk-cta" data-open="${m.n}">${st==='open'?'Enter a wager':'View Wagers for Match'} →</button>`}</div>`;
   return `<div class="match expandable status-${st}" data-match="${m.n}">
-    <div class="m-top">${chip}<span class="m-meta">${dd.time} ${dd.tz} · Grp ${m.group} · M${m.n}</span></div>
+    <div class="m-top">${chip}<span class="m-meta">${dd.time} ${dd.tz} · ${phaseLabel} · M${m.n}</span></div>
     <div class="m-teams">
-      <div class="t-name home">${teamFlag(m.a)} ${m.a} <span class="t-code">(${teamCode(m.a)})</span></div>${mid}<div class="t-name away">${teamFlag(m.b)} ${m.b} <span class="t-code">(${teamCode(m.b)})</span></div>
+      <div class="t-name home">${teamNameHTML(m,"a")}</div>${mid}<div class="t-name away">${teamNameHTML(m,"b")}</div>
     </div>
-    <div class="m-foot">${m.city}<span class="dot"></span>${wc?`<span class="wcount">${wc} wager${wc!==1?'s':''}</span>`:'<span style="color:var(--faint)">No wagers yet</span>'}<span class="caret">▾</span></div>
+    <div class="m-foot">${city}<span class="dot"></span>${wc?`<span class="wcount">${wc} wager${wc!==1?'s':''}</span>`:'<span style="color:var(--faint)">No wagers yet</span>'}<span class="caret">▾</span></div>
     ${peek}
   </div>`;
 }
-function koCardHTML(k, dd){
-  const ta=resolveSlot(k[2]), tb=resolveSlot(k[3]); const known=ta&&tb;
-  const r=matchResult(k[0]);
-  const mid=(r&&known)?`<span class="score">${r.a}–${r.b}</span>`:`<span class="vs">v</span>`;
-  const chip = known ? '<span class="chip locked">Set</span>' : `<span class="chip ph">${k[1]}</span>`;
-  return `<div class="match placeholder">
-    <div class="m-top">${chip}<span class="m-meta">${dd.time} ${dd.tz} · ${k[1]} · M${k[0]}</span></div>
-    <div class="m-teams">
-      <div class="t-name home">${ta||slotLabel(k[2])}</div>${mid}<div class="t-name away">${tb||slotLabel(k[3])}</div>
-    </div>
-    <div class="m-foot">${k[4]}<span class="dot"></span><span style="color:var(--faint)">${known?'Matchup set':'Opens when teams are decided'}</span></div>
-  </div>`;
+function koCardHTML(k, dd, rec){
+  return matchCardHTML(koAsMatch(k), dd, rec);
 }
 function renderSchedule(){
   const rec={}; standings().forEach(s=>rec[s.id]={w:s.w6+s.w3,l:s.l});
@@ -2974,7 +3148,7 @@ function renderSchedule(){
   if(cab) cab.textContent = groups.some(g=>dayState[g.key]!=="collapsed") ? "Collapse all" : "Expand all";
   const html = groups.map(g=>{
     const collapsed = dayState[g.key]==="collapsed";
-    const body = g.rows.map(row=> row.kind==="g" ? matchCardHTML(row.m,row.dd,rec) : koCardHTML(row.k,row.dd)).join("");
+    const body = g.rows.map(row=> row.kind==="g" ? matchCardHTML(row.m,row.dd,rec) : koCardHTML(row.k,row.dd,rec)).join("");
     return `<div class="daygroup era-${g.era}">
       <button class="dayhdr" data-day="${g.key}">
         <span class="d">${g.label}</span><span class="line"></span>
@@ -3057,7 +3231,7 @@ function renderLog(){
       const m=elFor(e.mN);
       if(!m) return "";
       return `<div class="logitem result"><div class="tl"><i></i></div><div class="logbody">
-        <div class="logtext"><b>${memberName(e.by)}</b> refreshed result · ${m.a} <span class="sl">${e.a}–${e.b}</span> ${m.b}</div>
+        <div class="logtext"><b>${memberName(e.by)}</b> refreshed result · ${esc(m.a)} <span class="sl">${e.a}–${e.b}</span> ${esc(m.b)}</div>
         <div class="logtime">${fmtClock(e.t)} · M${e.mN}</div></div></div>`;
     }
     if(e.mN==="bonusWinner"){
@@ -3080,8 +3254,8 @@ function renderLog(){
     const verb = e.type==="edit"?"updated":e.type==="delete"?"cleared":"entered";
     const oldtxt = e.type==="edit"&&e.oa!=null?` <span style="color:var(--faint)">(was ${e.oa}–${e.ob})</span>`:"";
     const scoretxt = e.type==="delete"
-      ? `· ${m.a} v ${m.b}`
-      : `· ${m.a} <span class="sl">${e.a}–${e.b}</span> ${m.b}${oldtxt}`;
+      ? `· ${esc(m.a)} v ${esc(m.b)}`
+      : `· ${esc(m.a)} <span class="sl">${e.a}–${e.b}</span> ${esc(m.b)}${oldtxt}`;
     return `<div class="logitem ${e.type}"><div class="tl"><i></i></div><div class="logbody">
       <div class="logtext"><b>${memberName(e.by)}</b> ${verb}${proxy} ${scoretxt}${e.backfill?'<span class="bf">backfill</span>':''}</div>
       <div class="logtime">${fmtClock(e.t)} · M${e.mN}</div></div></div>`;
@@ -3136,6 +3310,79 @@ function openSheet(html){ $("#sheet").innerHTML=`<div class="grab"></div><button
 function closeSheet(){ $("#sheet").classList.remove("show"); $("#scrim").classList.remove("show"); }
 $("#scrim").onclick=closeSheet;
 
+/* ---------- Timezone selector ---------- */
+function deviceTzSummary(){
+  const label=deviceTzLabel(Date.now());
+  const off=tzOffsetLabel(-new Date().getTimezoneOffset());
+  return `${label} · ${off}`;
+}
+function tzMeta(key){
+  if(key==="auto") return deviceTzSummary();
+  if(TZS[key]) return `${TZS[key].label} · ${tzOffsetLabel(TZS[key].off)}`;
+  const off=parseTzOffsetKey(key);
+  return off===null ? "" : tzOffsetLabel(off);
+}
+function tzTitle(key){
+  if(key==="auto") return "Your Device's TimeZone";
+  if(TZS[key]) return TZS[key].name;
+  return "Other TimeZone";
+}
+function tzButtonHTML(key, extraClass=""){
+  const active = normalizeTzKey(TZSTATE)===key;
+  return `<button type="button" class="tz-card ${extraClass}${active?' active':''}" data-tzpick="${esc(key)}">`
+    + `<span class="t">${esc(tzTitle(key))}</span><span class="m">${esc(tzMeta(key))}</span></button>`;
+}
+function updateTimezoneControls(){
+  const key=normalizeTzKey(TZSTATE);
+  document.querySelectorAll("[data-tzquick]").forEach(b=>b.classList.toggle("active", b.dataset.tzquick===key));
+  const change=$("#changeTzBtn");
+  if(change) change.textContent = Session.get("l84_tz") ? getDisplayTz(Date.now()).label : "Change TZ";
+}
+function applyTimezone(key){
+  TZSTATE = normalizeTzKey(key);
+  if(TZSTATE==="auto") Session.del("l84_tz");
+  else Session.set("l84_tz", TZSTATE);
+  updateTimezoneControls();
+  renderScoreStatus();
+  renderSchedule();
+  closeSheet();
+  toast(TZSTATE==="auto" ? `Times use device timezone (${deviceTzSummary()})` : `Times use ${tzMeta(TZSTATE)}`, 2800);
+}
+function clearTimezoneSelection(){
+  TZSTATE = "auto";
+  Session.del("l84_tz");
+  updateTimezoneControls();
+  renderScoreStatus();
+  renderSchedule();
+  closeSheet();
+  toast("Timezone selection cleared", 2400);
+}
+function openTimezoneSheet(){
+  const cards = [tzButtonHTML("auto","tz-device")]
+    .concat(TZ_FAST.map(k=>tzButtonHTML(k,"tz-curated")))
+    .join("")
+    + `<button type="button" class="tz-card tz-other" id="tzOtherBtn"><span class="t">Other TimeZones...</span></button>`;
+  openSheet(`<h2>Pick your TimeZone</h2><div class="tz-card-grid">${cards}</div>`
+    + `<div class="tz-sheet-actions single"><button class="btn ghost clear" id="tzClearBtn">Clear TZ</button></div>`);
+  document.querySelectorAll("#sheet [data-tzpick]").forEach(el=>el.onclick=()=>applyTimezone(el.dataset.tzpick));
+  const other=$("#tzOtherBtn"); if(other) other.onclick=openOtherTimezoneSheet;
+  const clear=$("#tzClearBtn"); if(clear) clear.onclick=clearTimezoneSelection;
+}
+function openOtherTimezoneSheet(){
+  const key=normalizeTzKey(TZSTATE);
+  const tile = off => {
+    const k=tzOffsetLabel(off);
+    return `<button type="button" class="tz-offset-tile${key===k?' active':''}" data-tzoffset="${k}">${k}</button>`;
+  };
+  const negative = TZ_OFFSETS.filter(x=>x<0).map(tile).join("");
+  const zero = `<div class="tz-offset-zero">${tile(0)}</div>`;
+  const positive = TZ_OFFSETS.filter(x=>x>0).map(tile).join("");
+  openSheet(`<h2>Other timezone</h2><div class="tz-offset-grid">${negative}${zero}${positive}</div>`
+    + `<div class="tz-sheet-actions single"><button class="btn ghost" id="tzOtherBack">Back</button></div>`);
+  document.querySelectorAll("#sheet [data-tzoffset]").forEach(el=>el.onclick=()=>applyTimezone(el.dataset.tzoffset));
+  const back=$("#tzOtherBack"); if(back) back.onclick=openTimezoneSheet;
+}
+
 /* ---------- Match sheet ---------- */
 // Silent wipe — no toast. Used on match-modal first entry so stale clipboard
 // content can't be pasted by mistake; explicit copy buttons use toast instead.
@@ -3176,9 +3423,10 @@ function copyMatchWagersToClipboard(n, silent){
   }
 
   const dd2=disp(m.koUTC);
+  const phaseLabel = m.knockout ? m.group : "Group " + m.group;
   const lines=[
     `⚽ ${m.a} v ${m.b}`,
-    `${dd2.date} · ${dd2.time} ${dd2.tz} · Group ${m.group} · M${n}`,
+    `${dd2.date} · ${dd2.time} ${dd2.tz} · ${phaseLabel} · M${n}`,
     `${m.city}`,
     ``,
     `${owners.length} wager${owners.length!==1?'s':''}:`
@@ -3200,13 +3448,19 @@ function openMatch(n, preloadOwner, reopen){
   const m=elFor(n); const r=matchResult(n); const locked=isLocked(m);
   const wgs = STATE.wagers[n]||{};
   const owners = Object.keys(wgs);
+  if(m.knockout && !m.koResolved && !owners.length){
+    toast("Wagers open when both teams are decided", 3000);
+    return;
+  }
 
   const dd=disp(m.koUTC);
-  let head = `<h2>${m.a} <span style="color:var(--faint)">v</span> ${m.b}</h2>
-    <div class="sub">${dd.date} · ${dd.time} ${dd.tz} · ${m.venue}, ${m.city} · Group ${m.group}</div>`;
+  const phaseLabel = m.knockout ? m.group : "Group " + m.group;
+  const aName = esc(m.a), bName = esc(m.b), venueName = esc(m.venue), cityName = esc(m.city);
+  let head = `<h2>${aName} <span style="color:var(--faint)">v</span> ${bName}</h2>
+    <div class="sub">${dd.date} · ${dd.time} ${dd.tz} · ${venueName}, ${cityName} · ${esc(phaseLabel)}</div>`;
 
   let scoreBlk = r
-    ? `<div class="scorebig"><div class="tn h">${m.a}</div><div class="sc">${r.a}–${r.b}<small>Full-time</small></div><div class="tn">${m.b}</div></div>`
+    ? `<div class="scorebig"><div class="tn h">${aName}</div><div class="sc">${r.a}–${r.b}<small>Full-time</small></div><div class="tn">${bName}</div></div>`
     : (locked
         ? `<div class="lockbox">⏱ <b>Wagers locked</b> — this match has kicked off. No result recorded yet; tap <b>↻ Scores</b> to pull it.</div>`
         : ``);
@@ -3243,9 +3497,9 @@ function openMatch(n, preloadOwner, reopen){
           <select id="ownerSel">${ownerOpts()}</select></div>
         <div class="fld"><label>Predicted score</label>
           <div class="scoreinputs">
-            <div><div class="teamcap">${m.a}</div><input id="scA" type="number" min="0" max="20" inputmode="numeric" placeholder="?" value="${preA}"></div>
+            <div><div class="teamcap">${aName}</div><input id="scA" type="number" min="0" max="20" inputmode="numeric" placeholder="?" value="${preA}"></div>
             <div class="mid">–</div>
-            <div><div class="teamcap">${m.b}</div><input id="scB" type="number" min="0" max="20" inputmode="numeric" placeholder="?" value="${preB}"></div>
+            <div><div class="teamcap">${bName}</div><input id="scB" type="number" min="0" max="20" inputmode="numeric" placeholder="?" value="${preB}"></div>
           </div></div>
       </div>
       <div class="btnrow">
@@ -3261,9 +3515,9 @@ function openMatch(n, preloadOwner, reopen){
             <select id="ownerSel">${ownerOpts()}</select></div>
           <div class="fld"><label>Predicted score</label>
             <div class="scoreinputs">
-              <div><div class="teamcap">${m.a}</div><input id="scA" type="number" min="0" max="20" inputmode="numeric" placeholder="?"></div>
+              <div><div class="teamcap">${aName}</div><input id="scA" type="number" min="0" max="20" inputmode="numeric" placeholder="?"></div>
               <div class="mid">–</div>
-              <div><div class="teamcap">${m.b}</div><input id="scB" type="number" min="0" max="20" inputmode="numeric" placeholder="?"></div>
+              <div><div class="teamcap">${bName}</div><input id="scB" type="number" min="0" max="20" inputmode="numeric" placeholder="?"></div>
             </div></div>
         </div>
         <button class="btn" id="saveWager">Save backfill wager</button>
@@ -3427,6 +3681,7 @@ function openPlayer(pid){
   const rows=[];
   let pts=0,w6=0,w3=0,l=0,pend=0,placed=0;
   for(const n in STATE.wagers){
+    if(!matchInPhase(n, PHASE)) continue;
     const wg=STATE.wagers[n][pid]; if(!wg) continue;
     placed++;
     const m=elFor(+n); const r=matchResult(+n); const p=scoreWager(wg,r);
@@ -3437,7 +3692,7 @@ function openPlayer(pid){
   const name=memberName(pid);
   const pendStr = pend>0 ? ` (${pend} pending)` : '';
   let body=`<h2>${name}</h2>
-    <div class="sub">${placed} bet${placed!==1?'s':''}${pendStr}</div>
+    <div class="sub">${phaseMatchLabel(PHASE)} · ${placed} bet${placed!==1?'s':''}${pendStr}</div>
     <div class="ph-summary">
       <div class="stat"><div class="v" style="color:var(--green)">${pts}</div><div class="l">Points</div></div>
       <div class="stat"><div class="v" style="color:var(--green)">${w6}</div><div class="l">6-pt</div></div>
@@ -3471,7 +3726,7 @@ function openPlayer(pid){
       const scrStr = scoreOk===null?"·":scoreOk?"✓":"✗";
       const scrCls = scoreOk===null?"pend":scoreOk?"win":"loss";
       return `<div class="ph-row">
-        <div class="ph-match">${m.a} v ${m.b}</div>
+        <div class="ph-match">${esc(m.a)} v ${esc(m.b)}</div>
         <div class="ph-pick">${wg.a}–${wg.b}</div>
         <div class="ph-res${r?' res-known':''}">${resTxt}</div>
         <div></div>
@@ -3492,11 +3747,15 @@ function refreshScores(silent){
     STATE.results = Object.fromEntries(
       Object.entries(r.results).map(([k,v]) => [+k, v])
     );
+    applyKoFixturesResponse(r);
     applyLogResponse(r);
-    STATE.lastRefresh = Date.now();
+    if(!r.scoreError) STATE.lastRefresh = Date.now();
     renderScoreStatus();
     renderAll();
-    if(!silent) toast(r.fromCache ? "Scores refreshed (cached)" : "Live scores updated ✓");
+    if(!silent) {
+      if(r.scoreError) toast("Matchups refreshed; score fetch failed", 4000);
+      else toast(r.fromCache ? "Scores refreshed (cached)" : "Live scores updated ✓");
+    }
   });
 }
 
@@ -3767,7 +4026,7 @@ function setPhase(phase){
   });
   if(prev !== PHASE){
     dayState = {};
-    if($("#view-schedule")?.classList.contains("active")) renderSchedule();
+    renderAll();
   }
 }
 document.querySelectorAll(".phase-tab").forEach(t=>t.onclick=()=>setPhase(t.dataset.phase));
@@ -3893,13 +4152,8 @@ $("#logDepthToggle").onclick = async () => {
   else { console.error("fullLog failed:", r); }
   renderLog();
 };
-document.querySelectorAll("[data-tz]").forEach(b=>b.onclick=()=>{
-  TZSTATE=b.dataset.tz;
-  document.querySelectorAll("[data-tz]").forEach(x=>x.classList.toggle("active", x===b));
-  Session.set('l84_tz', TZSTATE);
-  renderScoreStatus();
-  renderSchedule();
-});
+const changeTzBtn=$("#changeTzBtn"); if(changeTzBtn) changeTzBtn.onclick=openTimezoneSheet;
+document.querySelectorAll("[data-tzquick]").forEach(b=>b.onclick=()=>applyTimezone(b.dataset.tzquick));
 $("#collapseAllBtn").onclick=()=>{
   const anyOpen=Object.values(dayState).some(v=>v!=="collapsed");
   Object.keys(dayState).forEach(k=>dayState[k]= anyOpen?"collapsed":"open");
@@ -3983,7 +4237,10 @@ async function serverSaveWager(n, ownerId, a, b) {
   return api("save", { token: TOKEN, matchN: n, ownerId, a, b });
 }
 async function serverRefreshScores() {
-  return api("refresh", { token: TOKEN || "" });
+  return api("refresh", {
+    token: TOKEN || "",
+    forceKoFixtures: memberName(acting) === "Venu Nair"
+  });
 }
 async function serverClaimIdentity(name) {
   return api("claim", { name });
@@ -3999,13 +4256,14 @@ async function serverTopScorers() {
 (async function init() {
   // Pre-initialise STATE so schedule renders immediately
   STATE = { members: [], wagers:{}, results:{}, log:[], you:null, lastRefresh:null,
-            bonusWinnerPicks: {}, bonusGoldenBootPicks: {}, topScorers: [] };
+            bonusWinnerPicks: {}, bonusGoldenBootPicks: {}, topScorers: [],
+            koFixtures: {} };
 
-  // Restore TZ pref
+  // Restore TZ pref. Absence/"auto" means follow the device/browser timezone;
+  // old PDT/IST localStorage values remain explicit sticky choices.
   const tzpref = Session.get("l84_tz");
-  if (tzpref && TZS[tzpref]) TZSTATE = tzpref;
-  document.querySelectorAll("[data-tz]").forEach(x =>
-    x.classList.toggle("active", x.dataset.tz === TZSTATE));
+  TZSTATE = normalizeTzKey(tzpref);
+  updateTimezoneControls();
   setPhase(Date.now() >= new Date(KNOCKOUT_START_UTC).getTime() ? "knockout" : "group");
 
   // Show a loading hint
@@ -4035,6 +4293,7 @@ async function serverTopScorers() {
       bonusWinnerPicks: data.bonusWinnerPicks || {},
       bonusGoldenBootPicks: data.bonusGoldenBootPicks || {},
       topScorers: data.topScorers || [],
+      koFixtures: data.koFixtures || {},
       lastRefresh: null
     };
     const seedRefreshEntry = STATE.log.find(e => e.type === "refresh");
