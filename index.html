@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <!--
   L'84 FIFA 2026 — version log (newest first)
+  v182 · 2026-06-27 · Staging demo: fake M73–M76 results (90-min, ET, pens, 0–0
+  pens) with resolved team names when IS_TEST; cards show a purple Testing badge.
+  v181 · 2026-06-27 · KO score sublines bumped 8px → 10px on schedule cards (still
+  below the 22px final score on mobile); modal sublines unchanged at 10px.
+  v180 · 2026-06-27 · KO score subline copy: "Extra Time" / "Penalty Shootout"
+  (stacked two lines, smaller than final score) instead of AET / Pens abbreviations.
+  v179 · 2026-06-27 · Knockout score display + wager rules (pairs Code.gs v87):
+  openfootball ET + pen totals for grading; schedule card and match modal show
+  Extra Time / Penalty Shootout sublines (stacked, smaller type); KO wagers reject
+  equal scores (M73+). formatResultDisplay().
   v178 · 2026-06-27 · Identity picker add-member fix: "(not you?)" no longer clears
   the device token — server addMember still needs an admin TOKEN; only acting was
   kept before, so + Add member on the identity screen silently failed (toast hidden
@@ -526,6 +536,7 @@
   @media(max-width:768px){
     .t-name{font-size:16px!important}
     .score{font-size:22px!important}
+    .score-sub-line{font-size:10px!important;max-width:124px}
     .vs{font-size:15px!important}
     .chip{font-size:11px!important;padding:3px 8px!important}
     .m-meta{font-size:12px!important}
@@ -684,6 +695,7 @@
   .chip.open{background:var(--green-dim); color:var(--green)}
   .chip.locked{background:var(--amber-dim); color:var(--amber)}
   .chip.played{background:var(--red-dim); color:var(--red)}
+  .chip.test{background:#7B4FD4;color:#fff;border:1px solid #9B6FE8;font-weight:700}
   .chip.ph{background:var(--surface-2); color:var(--faint)}
   .m-meta{font-size:10.5px; color:var(--faint); font-family:var(--mono); margin-left:auto; text-align:right; white-space:nowrap}
   .m-teams{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px}
@@ -695,6 +707,9 @@
   .match.status-open .t-name{color:var(--green)}
   .vs{font-family:var(--mono); font-size:12px; color:var(--faint); padding:0 2px; white-space:nowrap}
   .score{font-family:var(--mono); font-size:18px; font-weight:800; letter-spacing:.04em}
+  .score-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:52px}
+  .score-sub{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;max-width:128px}
+  .score-sub-line{display:block;font-family:var(--ui);font-size:10px;font-weight:650;color:var(--faint);letter-spacing:.01em;line-height:1.3;text-align:center}
   .m-foot{margin-top:7px; font-size:11px; color:var(--muted); display:flex; gap:6px; align-items:center}
   .m-foot .dot{width:3px;height:3px;border-radius:50%;background:var(--faint)}
   .wcount{color:var(--blue); font-weight:600}
@@ -771,6 +786,8 @@
   .scorebig .tn{font-size:14px;font-weight:700}
   .scorebig .tn.h{text-align:right}
   .scorebig .sc{font-family:var(--mono);font-size:26px;font-weight:800;letter-spacing:.06em;text-align:center}
+  .scorebig .sc .score-sub{display:block;max-width:none;margin:2px 0 4px}
+  .scorebig .sc .score-sub-line{font-size:10px;line-height:1.3}
   .scorebig .sc small{display:block;font-size:9px;letter-spacing:.1em;color:var(--faint);font-weight:700;text-transform:uppercase}
 
   .formrow{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px}
@@ -1566,6 +1583,33 @@ const elFor=n=>MATCHES.find(m=>m.n===n) || (koMatchById(n)?koAsMatch(koMatchById
 const memberName=id=>{const m=STATE.members.find(x=>x.id===id);return m?m.name:"?";};
 function isLocked(m){ return Date.now() >= new Date(m.koUTC).getTime(); }
 function matchResult(n){ return STATE.results[n]||null; }
+function formatResultDisplay(r){
+  if(!r) return { main:"", parts:[], label:"Full-time" };
+  const main = `${r.a}–${r.b}`;
+  const parts = [];
+  let label = "Full-time";
+  if(r.p){
+    const aet = r.et || r.ft;
+    if(aet) parts.push(`Extra Time ${aet[0]}–${aet[1]}`);
+    parts.push(`Penalty Shootout ${r.p[0]}–${r.p[1]}`);
+    label = "Final";
+  } else if(r.et && r.ft && (r.et[0]!==r.ft[0] || r.et[1]!==r.ft[1])){
+    parts.push(`Extra Time ${r.et[0]}–${r.et[1]}`);
+    label = "Final";
+  }
+  return { main, parts, label };
+}
+function resultSubHTML(parts){
+  if(!parts || !parts.length) return "";
+  return `<span class="score-sub">${parts.map(line=>`<span class="score-sub-line">${line}</span>`).join("")}</span>`;
+}
+function resultScoreHTML(r, forModal){
+  const d = formatResultDisplay(r);
+  if(forModal){
+    return `<div class="sc"><div>${d.main}</div>${resultSubHTML(d.parts)}<small>${d.label}</small></div>`;
+  }
+  return `<span class="score-wrap"><span class="score">${d.main}</span>${resultSubHTML(d.parts)}</span>`;
+}
 function sgn(x){ return x>0?1:(x<0?-1:0); }
 function scoreWager(p, r){
   if(!r) return null;
@@ -1786,6 +1830,7 @@ function initLiveWarm(isStale){
         Object.entries(r.results).map(([k,v]) => [+k, v])
       );
       applyKoFixturesResponse(r);
+      applyTestKoDemo();
       applyLogResponse(r);
       if(!r.scoreError) STATE.lastRefresh = Date.now();
       renderScoreStatus();
@@ -3115,11 +3160,13 @@ function matchCardHTML(m, dd, rec){
   const wc=STATE.wagers[m.n]?Object.keys(STATE.wagers[m.n]).length:0;
   const phaseLabel = m.knockout ? m.group : "Grp " + m.group;
   const aName = esc(m.a), bName = esc(m.b), city = esc(m.city);
-  const chip = st==="played"?'<span class="chip played">Full-time</span>'
+  const testBadge = r && r.test ? '<span class="chip test">Testing</span>' : '';
+  const playedLabel = r ? formatResultDisplay(r).label : "Full-time";
+  const chip = st==="played"?`<span class="chip played">${playedLabel}</span>`
              : st==="open"?'<span class="chip open">Open</span>'
              : st==="pending"?'<span class="chip locked">Pending</span>'
              : '<span class="chip locked">Locked</span>';
-  const mid = r?`<span class="score">${r.a}–${r.b}</span>`:`<span class="vs">v</span>`;
+  const mid = r ? resultScoreHTML(r, false) : `<span class="vs">v</span>`;
   const wgs = STATE.wagers[m.n]||{};
   const owners = Object.keys(wgs);
   const isAdmin = ADMINS.includes(memberName(acting));
@@ -3147,7 +3194,7 @@ function matchCardHTML(m, dd, rec){
     }).join('') : `<div class="pk-empty">No wagers yet — be the first.</div>`
   }${st==="pending" && !owners.length ? "" : `<button class="pk-cta" data-open="${m.n}">${st==='open'?'Enter a wager':'View Wagers for Match'} →</button>`}</div>`;
   return `<div class="match expandable status-${st}" data-match="${m.n}">
-    <div class="m-top">${chip}<span class="m-meta">${dd.time} ${dd.tz} · ${phaseLabel} · M${m.n}</span></div>
+    <div class="m-top">${testBadge}${chip}<span class="m-meta">${dd.time} ${dd.tz} · ${phaseLabel} · M${m.n}</span></div>
     <div class="m-teams">
       <div class="t-name home">${teamNameHTML(m,"a")}</div>${mid}<div class="t-name away">${teamNameHTML(m,"b")}</div>
     </div>
@@ -3523,11 +3570,12 @@ function openMatch(n, preloadOwner, reopen){
   const dd=disp(m.koUTC);
   const phaseLabel = m.knockout ? m.group : "Group " + m.group;
   const aName = esc(m.a), bName = esc(m.b), venueName = esc(m.venue), cityName = esc(m.city);
-  let head = `<h2>${aName} <span style="color:var(--faint)">v</span> ${bName}</h2>
+  const testBadge = r && r.test ? '<span class="chip test">Testing</span>' : "";
+  let head = `<h2>${aName} <span style="color:var(--faint)">v</span> ${bName}${testBadge ? " "+testBadge : ""}</h2>
     <div class="sub">${dd.date} · ${dd.time} ${dd.tz} · ${venueName}, ${cityName} · ${esc(phaseLabel)}</div>`;
 
   let scoreBlk = r
-    ? `<div class="scorebig"><div class="tn h">${aName}</div><div class="sc">${r.a}–${r.b}<small>Full-time</small></div><div class="tn">${bName}</div></div>`
+    ? `<div class="scorebig"><div class="tn h">${aName}</div>${resultScoreHTML(r, true)}<div class="tn">${bName}</div></div>`
     : (locked
         ? `<div class="lockbox">⏱ <b>Wagers locked</b> — this match has kicked off. No result recorded yet; tap <b>↻ Scores</b> to pull it.</div>`
         : ``);
@@ -3557,7 +3605,11 @@ function openMatch(n, preloadOwner, reopen){
     const preA = myW ? myW.a : '';
     const preB = myW ? myW.b : '';
     const btnLabel = myW ? 'Update wager' : 'Save wager';
+    const koHint = n >= 73
+      ? `<div class="note" style="margin-bottom:8px">Include penalty-shootout goals in your score. Knockout picks must have a winner.</div>`
+      : "";
     form = `<div class="formcard">
+      ${koHint}
       ${myW?`<div class="note" style="margin-bottom:10px">You already have a wager on this match (<b>${myW.a}–${myW.b}</b>). Change it below — the latest before kickoff counts.</div>`:''}
       <div class="formrow">
         <div class="fld"><label>Whose wager</label>
@@ -3721,6 +3773,10 @@ function saveWager(n, locked){
   const ownerId=$("#ownerSel").value;
   const a=parseInt($("#scA").value,10), b=parseInt($("#scB").value,10);
   if(isNaN(a)||isNaN(b)||a<0||b<0){ toast("Enter both scores"); return; }
+  if(n >= 73 && a === b){
+    toast("Knockout wagers must pick a winner (include pen goals, no draw)");
+    return;
+  }
   const isProxy = ownerId!==acting;
   const btn = $("#saveWager");
   SAVE_IN_FLIGHT = true;
@@ -3815,6 +3871,7 @@ function refreshScores(silent){
       Object.entries(r.results).map(([k,v]) => [+k, v])
     );
     applyKoFixturesResponse(r);
+    applyTestKoDemo();
     applyLogResponse(r);
     if(!r.scoreError) STATE.lastRefresh = Date.now();
     renderScoreStatus();
@@ -4289,6 +4346,33 @@ if (IS_TEST) {
   } catch(e){}
 }
 
+// Staging-only demo rows: four KO score shapes on M73–M76 (never written to sheet).
+const TEST_KO_DEMO = {
+  fixtures: {
+    73: { n:73, a:"Mexico", b:"South Korea", aCode:"MEX", bCode:"KOR", source:"test-demo" },
+    74: { n:74, a:"Brazil", b:"Japan", aCode:"BRA", bCode:"JPN", source:"test-demo" },
+    75: { n:75, a:"France", b:"Germany", aCode:"FRA", bCode:"GER", source:"test-demo" },
+    76: { n:76, a:"Argentina", b:"Croatia", aCode:"ARG", bCode:"CRO", source:"test-demo" },
+  },
+  results: {
+    73: { a:2, b:1, ft:[2,1], test:true },
+    74: { a:3, b:2, ft:[2,2], et:[3,2], test:true },
+    75: { a:5, b:4, ft:[1,1], et:[3,3], p:[2,1], test:true },
+    76: { a:4, b:3, ft:[0,0], et:[0,0], p:[4,3], test:true },
+  }
+};
+function applyTestKoDemo(){
+  if(!IS_TEST || !STATE) return;
+  STATE.koFixtures = STATE.koFixtures || {};
+  Object.entries(TEST_KO_DEMO.fixtures).forEach(([n,f])=>{
+    STATE.koFixtures[+n] = Object.assign({}, STATE.koFixtures[+n] || {}, f);
+  });
+  STATE.results = STATE.results || {};
+  Object.entries(TEST_KO_DEMO.results).forEach(([n,r])=>{
+    STATE.results[+n] = Object.assign({}, r);
+  });
+}
+
 let TOKEN = null; // device identity token, stored in localStorage
 
 const Session = {
@@ -4383,6 +4467,7 @@ async function serverTopScorers() {
       bonusWagerLock: data.bonusWagerLock || bonusWagerLockInfo(),
       lastRefresh: null
     };
+    applyTestKoDemo();
     const seedRefreshEntry = STATE.log.find(e => e.type === "refresh");
     if (seedRefreshEntry) STATE.lastRefresh = new Date(seedRefreshEntry.t).getTime();
 
