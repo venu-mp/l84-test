@@ -1,6 +1,23 @@
 <!DOCTYPE html>
 <!--
   L'84 FIFA 2026 — version log (newest first)
+  v178 · 2026-06-27 · Identity picker add-member fix: "(not you?)" no longer clears
+  the device token — server addMember still needs an admin TOKEN; only acting was
+  kept before, so + Add member on the identity screen silently failed (toast hidden
+  behind z-index 999 overlay). Token is replaced when a different name is claimed.
+  v177 · 2026-06-27 · Tournament lock rejection/banner polish: failed WCW/Golden
+  Boot saves now apply returned bonusWagerLock so stale clients close promptly;
+  banner copy is Tournament-scoped and includes the displayed lock time.
+  v176 · 2026-06-27 · Tournament lock sync: apply bonusWagerLock from refresh and
+  bonus pick/delete responses so UI tracks Config sheet edits without reload.
+  v175 · 2026-06-27 · Tournament wager lock from Config sheet (via init):
+  bonusWagerLockMatchN resolves to kickoff for WCW/Golden Boot UI lock and banner.
+  Change Config tab cell to move deadline — no redeploy. KNOCKOUT_START_UTC
+  unchanged for Schedule group/KO phase only.
+  v174 · 2026-06-27 · Timezone selector fix: picking Your Device's TimeZone now
+  persists as an explicit auto choice so the schedule-row TZ button shows the
+  live device label (e.g. PDT) instead of reverting to Change TZ. Clear TZ still
+  removes the sticky choice and restores the initial Change TZ label.
   v173 · 2026-06-27 · Timezone selector prototype (staging): Schedule row now
   keeps selected-TZ / Calif / India beside the refresh status, with a
   mobile-first selector sheet for device timezone, curated pool zones, and
@@ -1247,7 +1264,7 @@
   </div>
 
   <div class="view" id="view-bonus">
-    <div class="bb-banner" id="bbBanner">Picks LOCK when the KnockOut stage begins</div>
+    <div class="bb-banner" id="bbBanner">Tournament picks lock at deadline</div>
     <div class="bb-subtabs">
       <button class="bb-subtab" data-bbsub="winner"><span class="gs-new">new</span>🏆 World Cup Winner</button>
       <button class="bb-subtab active" data-bbsub="goldenboot"><span class="gs-new">new</span><img class="bb-subtab-icon" src="golden-boot-icon.png" alt=""> Golden Boot</button>
@@ -1956,8 +1973,32 @@ function bonusWinnerBetCount(){
     .reduce((sum, oid)=>sum + bonusWinnerTeamsFor(oid).length, 0);
 }
 
+function bonusWagerLockInfo(){
+  if(STATE && STATE.bonusWagerLock && STATE.bonusWagerLock.koUTC) return STATE.bonusWagerLock;
+  const row = koMatchById(74);
+  return { matchN: 74, koUTC: row ? row[5] : "2026-06-29T17:00:00Z" };
+}
+
+function bonusWagerLockUtcMs(){
+  const ko = bonusWagerLockInfo().koUTC;
+  const ms = ko ? new Date(ko).getTime() : 0;
+  return isFinite(ms) ? ms : 0;
+}
+
+function bonusLockBannerText(){
+  const n = bonusWagerLockInfo().matchN;
+  const ms = bonusWagerLockUtcMs();
+  const when = ms ? ` · ${dispCompact(ms)}` : "";
+  const fix = (STATE && STATE.koFixtures || {})[n];
+  if(fix && fix.a && fix.b) return `Tournament picks LOCK before ${fix.a} v ${fix.b} (M${n})${when}`;
+  const [a, b] = koTeams(n);
+  if(a && b) return `Tournament picks LOCK before ${a} v ${b} (M${n})${when}`;
+  return `Tournament picks LOCK at M${n} kickoff${when}`;
+}
+
 function bonusWinnerLocked(){
-  return Date.now() >= new Date(KNOCKOUT_START_UTC).getTime();
+  const ms = bonusWagerLockUtcMs();
+  return ms > 0 && Date.now() >= ms;
 }
 
 function canEditBonusWinnerBet(ownerId){
@@ -2180,7 +2221,11 @@ function bbwShowConfirm(team, ownerId){
       yesBtn.disabled = true; yesBtn.textContent = "Clearing…";
       const r = await serverBonusWinnerDelete(ownerId, team);
       closeSheet();
-      if(!r || !r.ok){ toast("Couldn't remove: "+(r&&r.error||"unknown error"), 4000); return; }
+      if(!r || !r.ok){
+        if(applyBonusWagerLockResponse(r)){ renderTournamentSurface(); renderSafe("Tournament banner", updateBonusPulse); }
+        toast("Couldn't remove: "+(r&&r.error||"unknown error"), 4000);
+        return;
+      }
       STATE.bonusWinnerPicks = r.picks || {};
       applyLogResponse(r);
       toast(r.unchanged ? "No matching wager found" : `Removed wager: ${team}${locked && isAdmin ? " (backfill)" : ""}`);
@@ -2191,7 +2236,11 @@ function bbwShowConfirm(team, ownerId){
     yesBtn.disabled = true; yesBtn.textContent = "Saving…";
     const r = await serverBonusWinnerPick(ownerId, team);
     closeSheet();
-    if(!r || !r.ok){ toast("Couldn't save: "+(r&&r.error||"unknown error"), 4000); return; }
+    if(!r || !r.ok){
+      if(applyBonusWagerLockResponse(r)){ renderTournamentSurface(); renderSafe("Tournament banner", updateBonusPulse); }
+      toast("Couldn't save: "+(r&&r.error||"unknown error"), 4000);
+      return;
+    }
     STATE.bonusWinnerPicks = r.picks || {};
     applyLogResponse(r);
     toast(r.unchanged ? `Already picked: ${team}` : `Added wager: ${team}`);
@@ -2413,7 +2462,7 @@ function bonusGoldenBootBetCount(){
 }
 
 function bonusGoldenBootLocked(){
-  return Date.now() >= new Date(KNOCKOUT_START_UTC).getTime();
+  return bonusWinnerLocked();
 }
 
 function canEditBonusGoldenBootBet(ownerId){
@@ -2735,7 +2784,11 @@ function gbwShowConfirm(key, ownerId){
       yesBtn.disabled = true; yesBtn.textContent = "Clearing…";
       const r = await serverBonusGoldenBootDelete(ownerId, key);
       closeSheet();
-      if(!r || !r.ok){ toast("Couldn't remove: "+(r&&r.error||"unknown error"), 4000); return; }
+      if(!r || !r.ok){
+        if(applyBonusWagerLockResponse(r)){ renderTournamentSurface(); renderSafe("Tournament banner", updateBonusPulse); }
+        toast("Couldn't remove: "+(r&&r.error||"unknown error"), 4000);
+        return;
+      }
       STATE.bonusGoldenBootPicks = r.picks || {};
       applyLogResponse(r);
       toast(r.unchanged ? "No matching wager found" : `Removed wager: ${p.shortName || p.name}${locked && isAdmin ? " (backfill)" : ""}`);
@@ -2745,7 +2798,11 @@ function gbwShowConfirm(key, ownerId){
     yesBtn.disabled = true; yesBtn.textContent = "Saving…";
     const r = await serverBonusGoldenBootPick(ownerId, p);
     closeSheet();
-    if(!r || !r.ok){ toast("Couldn't save: "+(r&&r.error||"unknown error"), 4000); return; }
+    if(!r || !r.ok){
+      if(applyBonusWagerLockResponse(r)){ renderTournamentSurface(); renderSafe("Tournament banner", updateBonusPulse); }
+      toast("Couldn't save: "+(r&&r.error||"unknown error"), 4000);
+      return;
+    }
     STATE.bonusGoldenBootPicks = r.picks || {};
     applyLogResponse(r);
     toast(r.unchanged ? `Already picked: ${p.shortName || p.name}` : `Added wager: ${p.shortName || p.name}`);
@@ -2810,11 +2867,12 @@ function updateTournamentTabHighlight(){
 function updateBonusPulse(){
   const banner = $("#bbBanner");
   if(!banner) return;
-  if(Date.now() >= new Date(KNOCKOUT_START_UTC).getTime()){
+  if(bonusWinnerLocked()){
     banner.style.display = "none";
     return;
   }
   banner.style.display = "";
+  banner.textContent = bonusLockBannerText();
   const hasPickedWinner = bonusWinnerTeamsFor(acting).length > 0;
   const hasPickedGoldenBoot = bonusGoldenBootPlayersFor(acting).length > 0;
   const bothDone = hasPickedWinner && hasPickedGoldenBoot;
@@ -3296,13 +3354,23 @@ function renderDepthToggle(){
 // return the RECENT slice (Code.gs readLogRecent), so we replace the buffer and
 // reset depth to live — after acting you snap back to recent activity, and
 // "Show all" becomes a fresh, deliberate re-selection.
+function applyBonusWagerLockResponse(r){
+  if(!r || !r.bonusWagerLock || !r.bonusWagerLock.koUTC) return false;
+  const prevMs = bonusWagerLockUtcMs();
+  const prevN = bonusWagerLockInfo().matchN;
+  STATE.bonusWagerLock = r.bonusWagerLock;
+  return prevMs !== bonusWagerLockUtcMs() || prevN !== r.bonusWagerLock.matchN;
+}
+
 function applyLogResponse(r){
+  if(!r) return;
   if(r.log) STATE.log = r.log;
   if(r.logHasMore !== undefined) STATE.logHasMore = r.logHasMore;
   logFull = false;
   LOGVIEW = "recent";
   updateCopyRecentWagersBtn();
   renderLog();
+  if(applyBonusWagerLockResponse(r)) updateBonusPulse();
 }
 
 /* ---------- Sheet (modal) ---------- */
@@ -3340,8 +3408,7 @@ function updateTimezoneControls(){
 }
 function applyTimezone(key){
   TZSTATE = normalizeTzKey(key);
-  if(TZSTATE==="auto") Session.del("l84_tz");
-  else Session.set("l84_tz", TZSTATE);
+  Session.set("l84_tz", TZSTATE);
   updateTimezoneControls();
   renderScoreStatus();
   renderSchedule();
@@ -4053,6 +4120,8 @@ $("#addMemberBtn").onclick=addMember;
 function showIdentityScreen(canCancel){
   const screen=$("#idScreen");
   const list=$("#idList");
+  const idSub=$("#idSub");
+  if(idSub) idSub.textContent="Tap your name — this device will remember you.";
   screen.style.display="flex";
   list.innerHTML=[...STATE.members].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>
     `<button class="idname" data-mid="${m.id}">${m.name}${ADMINS.includes(m.name)?'<span class="id-admin-tag"> ★</span>':''}</button>`
@@ -4098,13 +4167,20 @@ function showIdentityScreen(canCancel){
     initLiveWarm(isStale);
   });
   $("#idAddBtn").onclick=()=>{
+    const idSub=$("#idSub");
+    const idSubDefault=idSub?idSub.textContent:"";
     if(!acting || !ADMINS.includes(memberName(acting))){
-      toast("Only admins can add new members", 3000);
+      if(idSub) idSub.textContent="Only admins can add new members.";
       return;
     }
+    if(!TOKEN){
+      if(idSub) idSub.textContent="Tap your ★ name first to confirm admin, then Add member.";
+      return;
+    }
+    if(idSub) idSub.textContent=idSubDefault;
     // replace button with inline input — no prompt() needed (blocked on iOS Safari)
     $("#idAddBtn").outerHTML=`<div id="idAddWrap" style="grid-column:1/-1;display:flex;gap:8px;margin-top:4px">
-      <input id="idNameInput" type="text" placeholder="Your full name" autocomplete="name"
+      <input id="idNameInput" type="text" placeholder="New member's full name" autocomplete="name"
         style="flex:1;padding:12px 10px;border-radius:10px;border:1.5px solid var(--blue);
         background:var(--ink);color:var(--paper);font-size:14px;font-family:var(--ui);font-weight:600">
       <button id="idNameSave" style="padding:12px 16px;border-radius:10px;background:var(--blue);
@@ -4114,13 +4190,25 @@ function showIdentityScreen(canCancel){
     async function saveNewName(){
       const nm=inp.value.trim();
       if(!nm){ inp.style.borderColor="var(--red)"; return; }
-      toast("Adding member…");
+      if(STATE.members.some(m=>m.name.toLowerCase()===nm.toLowerCase())){
+        if(idSub) idSub.textContent="That name is already in the pool.";
+        inp.style.borderColor="var(--red)";
+        return;
+      }
+      const saveBtn=$("#idNameSave");
+      if(saveBtn){ saveBtn.disabled=true; saveBtn.textContent="Saving…"; }
+      if(idSub) idSub.textContent="Adding member…";
       const r = await api("addMember", { token: TOKEN||"", name: nm });
-      if(!r.ok){ toast("Error: " + r.error, 5000); return; }
+      if(!r || !r.ok){
+        if(idSub) idSub.textContent="Couldn't add: " + ((r&&r.error)||"unknown error");
+        if(saveBtn){ saveBtn.disabled=false; saveBtn.textContent="Save"; }
+        return;
+      }
       STATE.members = (r.members||[]).map(m=>({id:m.id,name:m.name}));
       TOKEN = r.token;
       acting = STATE.members.find(m=>m.name===nm)?.id;
       Session.set("l84_token", TOKEN);
+      IDENTITY_CONFIRMED = true;
       screen.style.display="none";
       renderActing(); renderAll();
     }
@@ -4134,10 +4222,8 @@ function showIdentityScreen(canCancel){
   if(cancelBtn){ cancelBtn.style.display = canCancel ? "block" : "none"; cancelBtn.onclick=dismiss; }
 }
 $("#actingReset").onclick=async()=>{
-  TOKEN = null;
-  Session.del("l84_token");
-  // keep acting set so admin check works inside the picker
-  // it will be overwritten once a new name is chosen
+  // Keep TOKEN + acting so admin "+ Add member" on the picker still authenticates
+  // server-side; claimIdentity replaces both when a different name is chosen.
   showIdentityScreen(true);
 };
 $("#copyRecentWagersBtn").onclick=copyRecentWagers;
@@ -4257,7 +4343,7 @@ async function serverTopScorers() {
   // Pre-initialise STATE so schedule renders immediately
   STATE = { members: [], wagers:{}, results:{}, log:[], you:null, lastRefresh:null,
             bonusWinnerPicks: {}, bonusGoldenBootPicks: {}, topScorers: [],
-            koFixtures: {} };
+            koFixtures: {}, bonusWagerLock: bonusWagerLockInfo() };
 
   // Restore TZ pref. Absence/"auto" means follow the device/browser timezone;
   // old PDT/IST localStorage values remain explicit sticky choices.
@@ -4294,6 +4380,7 @@ async function serverTopScorers() {
       bonusGoldenBootPicks: data.bonusGoldenBootPicks || {},
       topScorers: data.topScorers || [],
       koFixtures: data.koFixtures || {},
+      bonusWagerLock: data.bonusWagerLock || bonusWagerLockInfo(),
       lastRefresh: null
     };
     const seedRefreshEntry = STATE.log.find(e => e.type === "refresh");
