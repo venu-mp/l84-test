@@ -1,8 +1,28 @@
 <!DOCTYPE html>
 <!--
   L'84 FIFA 2026 — version log (newest first)
-  v182 · 2026-06-27 · Staging demo: fake M73–M76 results (90-min, ET, pens, 0–0
-  pens) with resolved team names when IS_TEST; cards show a purple Testing badge.
+  v190 · 2026-06-28 · Copy Recent Wagers: compact matchup spacing (single spaces
+  around v and →) so KO pick lines stay on one row when pasted into WhatsApp.
+  v189 · 2026-06-28 · Mobile app tab row: redistribute flex from Schedule/Activity to
+  Match Leaderboard/Tournament, trim phase-wrap/tabs side padding, and clip overflow.
+  v188 · 2026-06-28 · Schedule TZ row: Calif and India quick-pick buttons widen on
+  large mobile breakpoints (iPhone Pro / Pro Max); Change TZ stays compact.
+  v187 · 2026-06-28 · Match Leaderboard player drilldown: KO picks use
+  wagerPickHTML (score + predicted winner); player table grid widened so Outcome
+  and Score headers no longer overlap.
+  v186 · 2026-06-28 · KO review cleanup (pairs Code.gs v90): Activity now shows
+  the previous KO winner on tied-score edits, and narrow schedule peek rows get
+  a <380px grid override to avoid overflow on very small screens.
+  v185 · 2026-06-28 · KO wager redesign (pairs Code.gs v89): predicted score is
+  final playing score only (FT + optional ET, no penalty goals). Tied KO picks
+  show a conditional "Who wins?" selector; display/copy/scoring use advancer.
+  KO tied results without penalty data stay pending for outcome/bracket purposes.
+  Wager sheet polish: matchup labels show flag/name/code, tied advancer tiles
+  flash until selected, and KO wager rows always show the implied advancer.
+  v184 · 2026-06-28 · KO score subline compatibility: show Extra Time when an
+  older v87 Results row has et but no ft; v88 backend persists ftA/ftB going forward.
+  v183 · 2026-06-27 · Reverted v182 staging KO demo (fake M73–M76 scores, Testing
+  badge, client-side fixture injection). Real KO score sublines (v179–v181) kept.
   v181 · 2026-06-27 · KO score sublines bumped 8px → 10px on schedule cards (still
   below the 22px final score on mobile); modal sublines unchanged at 10px.
   v180 · 2026-06-27 · KO score subline copy: "Extra Time" / "Penalty Shootout"
@@ -547,11 +567,14 @@
     .prize{font-size:10px!important}
     .pmeta{font-size:10px!important}
     .rank{font-size:14px!important}
-    .tabs{display:flex!important;flex-wrap:nowrap;gap:4px;justify-content:space-between;align-items:stretch}
-    .tab{flex:1 1 0;display:flex;align-items:center;justify-content:center;min-height:48px;
+    .tabs{display:flex!important;flex-wrap:nowrap;gap:4px;justify-content:space-between;align-items:stretch;padding:7px 2px 0!important}
+    .tab{display:flex;align-items:center;justify-content:center;min-height:48px;overflow:hidden;
       font-size:12.5px!important;padding:10px 3px!important;line-height:1.1;white-space:nowrap}
-    .tab[data-tab="table"]{white-space:normal}
+    .tab[data-tab="schedule"],.tab[data-tab="log"]{flex:0.85 1 0}
+    .tab[data-tab="table"]{flex:1.35 1 0;white-space:normal}
+    .tab[data-tab="bonus"]{flex:1.15 1 0}
     #bonusTab.tab-highlight:not(.active){padding:9px 3px 8px!important}
+    .phase-wrap{padding-left:8px!important;padding-right:8px!important}
     .phase-tab{font-size:14px!important;padding:10px 7px 8px!important}
     .phase-tab .phase-sub{font-size:10px!important}
     .seg{font-size:14px!important;padding:13px 16px!important}
@@ -597,6 +620,20 @@
     .gbw-topscorers-btn{font-size:15px!important;padding:11px 22px!important}
     .bb-subtab-icon{width:36px;height:36px}
     .wrap{max-width:100%!important}
+  }
+  @media(min-width:380px) and (max-width:768px){
+    .tzrow-main [data-tzquick]{
+      padding:8px 16px!important;
+      min-width:68px;
+      flex:0 0 auto;
+    }
+    .segrow.tzrow .score-status{max-width:38%}
+  }
+  @media(min-width:428px) and (max-width:768px){
+    .tzrow-main [data-tzquick]{
+      padding:8px 18px!important;
+      min-width:72px;
+    }
   }
   /* Group Standings (gs-) */
   .gs-group{margin-bottom:14px}
@@ -695,7 +732,6 @@
   .chip.open{background:var(--green-dim); color:var(--green)}
   .chip.locked{background:var(--amber-dim); color:var(--amber)}
   .chip.played{background:var(--red-dim); color:var(--red)}
-  .chip.test{background:#7B4FD4;color:#fff;border:1px solid #9B6FE8;font-weight:700}
   .chip.ph{background:var(--surface-2); color:var(--faint)}
   .m-meta{font-size:10.5px; color:var(--faint); font-family:var(--mono); margin-left:auto; text-align:right; white-space:nowrap}
   .m-teams{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px}
@@ -719,10 +755,10 @@
   .peek{display:none;margin-top:9px;border-top:1px dashed var(--line-2);padding-top:8px}
   .match.open .peek{display:block}
   .match.open .caret{transform:rotate(180deg)}
-  .pk-head{display:grid;grid-template-columns:1fr 58px 26px 28px;gap:8px;padding:2px 2px 6px;
+  .pk-head{display:grid;grid-template-columns:minmax(0,116px) minmax(104px,1fr) 34px 34px;gap:8px;padding:2px 2px 6px;
     font-size:9px;text-transform:uppercase;letter-spacing:.03em;color:var(--faint);font-weight:700;border-bottom:1px solid var(--line)}
   .pk-head div:nth-child(n+2){text-align:right}
-  .pk-row{display:grid;grid-template-columns:1fr 58px 26px 28px;gap:8px;padding:6px 2px;border-bottom:1px solid var(--line-2)}
+  .pk-row{display:grid;grid-template-columns:minmax(0,116px) minmax(104px,1fr) 34px 34px;gap:8px;padding:6px 2px;border-bottom:1px solid var(--line-2)}
   .pk-row:last-of-type{border-bottom:none}
   .admin-badge{font-size:9px;font-weight:800;color:var(--red);background:rgba(226,59,64,.12);border-radius:4px;padding:1px 5px;margin-left:5px;vertical-align:middle;text-transform:uppercase;letter-spacing:.05em}
   .id-admin-tag{font-size:10px;color:var(--red);font-weight:800}
@@ -733,11 +769,18 @@
     white-space:nowrap;color:var(--paper)}
   .pk-row .sub2{font-size:10px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pk-row .sub2 .recw{color:var(--green);font-weight:700} .pk-row .sub2 .recl{font-weight:700}
-  .pk-row .pkk{font-family:var(--mono);font-weight:800;font-size:14px;text-align:right}
+  .pick-adv{white-space:nowrap}
+  .pk-row .pkk{font-family:var(--mono);font-weight:800;font-size:13px;text-align:right;line-height:1.15;color:var(--blue)}
   .pk-row .wlc{font-family:var(--mono);font-weight:800;font-size:11px;text-align:right}
   .pk-row .wlc.win{color:var(--green)} .pk-row .wlc.loss{color:var(--red)} .pk-row .wlc.pend{color:var(--faint)}
-  .pk-row .pp{font-family:var(--mono);font-weight:800;font-size:13px;text-align:right}
+  .pk-head div:last-child,.pk-row .pp{text-align:center}
+  .pk-row .pp{font-family:var(--mono);font-weight:800;font-size:13px}
   .pk-row .pp.win{color:var(--green)} .pk-row .pp.loss{color:var(--faint)} .pk-row .pp.pend{color:var(--amber)}
+  @media(max-width:380px){
+    .pk-head,.pk-row{grid-template-columns:minmax(0,88px) minmax(88px,1fr) 30px 30px;gap:6px}
+    .pk-row .pkk{font-size:12px}
+    .pk-row .sub2{font-size:9.5px}
+  }
   .pk-empty{font-size:11.5px;color:var(--faint);padding:6px 2px}
   .pk-cta{width:100%;margin-top:8px;background:var(--blue);border:1px solid var(--blue);
     color:#fff;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--ui)}
@@ -805,6 +848,21 @@
   .scoreinputs input{text-align:center;font-family:var(--mono);font-size:20px;font-weight:800}
   .teamcap{font-size:11px;color:var(--muted);text-align:center;margin-bottom:5px;font-weight:600;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .advancer-wrap{display:none;margin:2px 0 12px}
+  .advancer-wrap.show{display:block}
+  .advancer-title{font-size:11px;color:var(--muted);font-weight:800;letter-spacing:.03em;margin:0 0 7px}
+  .advancer-nudge{display:none;margin:-2px 0 8px;font-size:12px;font-weight:850;color:var(--red)}
+  .advancer-wrap.needs-pick .advancer-nudge{display:block}
+  .advancer-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .advancer-btn{background:var(--surface-2);border:1.5px solid var(--line-2);color:var(--paper);
+    border-radius:10px;padding:11px 8px;font-size:13px;font-weight:800;font-family:var(--ui);
+    cursor:pointer;white-space:nowrap}
+  .advancer-btn.active{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+  .advancer-wrap.needs-pick .advancer-btn:not(.active){animation:advancerPulse .58s ease-in-out infinite alternate}
+  @keyframes advancerPulse{
+    from{background:#FFF3B0;border-color:#FFB300;color:#3B2600;box-shadow:0 0 0 0 rgba(255,179,0,.18);transform:scale(1)}
+    to{background:#FFD24A;border-color:var(--red);color:#1F1300;box-shadow:0 0 0 5px rgba(201,70,47,.22);transform:scale(1.025)}
+  }
   .btn{width:100%;background:var(--red);color:#fff;border:0;border-radius:10px;padding:12px;
     font-size:14px;font-weight:700;cursor:pointer;font-family:var(--ui)}
   .btn:active{transform:translateY(1px)}
@@ -1134,25 +1192,33 @@
   .wrow:last-child{border-bottom:none}
   .wrow .nm{flex:1;font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .wrow .by{font-size:10px;color:var(--faint);white-space:nowrap}
-  .wrow .pk{font-family:var(--mono);font-size:15px;font-weight:800;white-space:nowrap;color:var(--blue)}
+  .wrow .pk{font-family:var(--mono);font-size:15px;font-weight:800;color:var(--blue);text-align:right;line-height:1.15}
   .wrow.editable{background:var(--green-dim)}
 
   .empty{text-align:center;color:var(--faint);font-size:12.5px;padding:24px 12px}
 
   /* player detail rows */
   /* Player detail table */
-  .ph-head,.ph-row{display:grid;grid-template-columns:0.8fr 38px 42px 16px 56px 38px 28px;gap:3px;padding:7px 2px}
+  .ph-head,.ph-row{display:grid;grid-template-columns:minmax(0,0.76fr) minmax(68px,0.68fr) 36px 50px 38px 26px;gap:4px;padding:7px 2px;align-items:center}
   .ph-head{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:700;border-bottom:1px solid var(--line);margin-bottom:2px}
+  .ph-head > div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ph-head > div:nth-child(2),.ph-head > div:nth-child(3),.ph-head > div:nth-child(4),.ph-head > div:nth-child(5){text-align:center}
+  .ph-head > div:last-child{text-align:right}
   .ph-row{border-bottom:1px solid var(--line)}
   .ph-row:last-child{border-bottom:none}
   .ph-match{font-size:10.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ph-pick{font-family:var(--mono);font-weight:800;font-size:13px;text-align:center;color:var(--blue)}
+  .ph-pick{font-family:var(--mono);font-weight:800;font-size:12.5px;text-align:center;color:var(--blue);line-height:1.15}
   .ph-res{font-family:var(--mono);font-size:13px;text-align:center;color:var(--faint)}
   .ph-res.res-known{color:var(--green)}
   .ph-chk{font-size:14px;text-align:center;font-weight:700}
   .ph-chk.win{color:var(--green)} .ph-chk.loss{color:var(--red)} .ph-chk.pend{color:var(--faint)}
   .ph-pts{font-family:var(--mono);font-weight:800;font-size:13px;text-align:right}
   .ph-pts.s6{color:var(--green)} .ph-pts.s3{color:var(--paper)} .ph-pts.s0{color:var(--faint)} .ph-pts.pend{color:var(--amber)}
+  @media(max-width:380px){
+    .ph-head,.ph-row{grid-template-columns:minmax(0,0.68fr) minmax(64px,0.62fr) 30px 46px 34px 22px;gap:3px}
+    .ph-head{font-size:8px;letter-spacing:.03em}
+    .ph-pick{font-size:11.5px}
+  }
   .ph-summary{display:flex;gap:14px;background:var(--surface-2);border:1px solid var(--line);
     border-radius:12px;padding:12px;margin-bottom:8px}
   .ph-summary .stat{flex:1;text-align:center}
@@ -1592,10 +1658,10 @@ function formatResultDisplay(r){
     const aet = r.et || r.ft;
     if(aet) parts.push(`Extra Time ${aet[0]}–${aet[1]}`);
     parts.push(`Penalty Shootout ${r.p[0]}–${r.p[1]}`);
-    label = "Final";
-  } else if(r.et && r.ft && (r.et[0]!==r.ft[0] || r.et[1]!==r.ft[1])){
+    label = "Final playing score";
+  } else if(r.et && (!r.ft || r.et[0]!==r.ft[0] || r.et[1]!==r.ft[1])){
     parts.push(`Extra Time ${r.et[0]}–${r.et[1]}`);
-    label = "Final";
+    label = "Final playing score";
   }
   return { main, parts, label };
 }
@@ -1610,11 +1676,27 @@ function resultScoreHTML(r, forModal){
   }
   return `<span class="score-wrap"><span class="score">${d.main}</span>${resultSubHTML(d.parts)}</span>`;
 }
-function sgn(x){ return x>0?1:(x<0?-1:0); }
-function scoreWager(p, r){
+function resultOutcomeSide(r, m){
   if(!r) return null;
-  // PDF rule 3, verbatim: 3 pts for the outcome OR the scoreline; for the scoreline, 1-2 and 2-1 count the same; 6 for both.
-  const outcome = sgn(p.a-p.b)===sgn(r.a-r.b);
+  if(r.a>r.b) return "a";
+  if(r.b>r.a) return "b";
+  if(r.p && r.p[0]!==r.p[1]) return r.p[0]>r.p[1] ? "a" : "b";
+  if(m && m.knockout) return null;
+  return "draw";
+}
+function wagerOutcomeSide(p){
+  if(!p) return null;
+  if(+p.a>+p.b) return "a";
+  if(+p.b>+p.a) return "b";
+  return p.advancer === "a" || p.advancer === "b" ? p.advancer : "draw";
+}
+function scoreWager(p, r, m){
+  if(!r) return null;
+  // Outcome is the winner/advancer; the scoreline is still direction-agnostic.
+  const actualOutcome = resultOutcomeSide(r, m);
+  const pickedOutcome = wagerOutcomeSide(p);
+  if(!actualOutcome) return null;
+  const outcome = pickedOutcome === actualOutcome;
   const line = (p.a===r.a && p.b===r.b) || (p.a===r.b && p.b===r.a);
   return (outcome?3:0)+(line?3:0);
 }
@@ -1646,7 +1728,7 @@ function standings(phase=PHASE){
       const row=byId[owner]; if(!row) continue;
       row.placed++;
       const p=STATE.wagers[n][owner];
-      const pts=scoreWager(p,r);
+      const pts=scoreWager(p,r,elFor(+n));
       if(pts===null){ row.pending++; }
       else { row.pts+=pts; if(pts===6) row.w6++; else if(pts===3) row.w3++; else row.l++; }
     }
@@ -1673,6 +1755,63 @@ const TEAM_INFO = {
 };
 const teamCode = name => (TEAM_INFO[name]||{}).c || name.slice(0,3).toUpperCase();
 const teamFlag = name => (TEAM_INFO[name]||{}).f || "🏳️";
+function teamFullLabelHTML(name){
+  return `${teamFlag(name)} ${esc(name)} <span class="t-code">(${esc(teamCode(name))})</span>`;
+}
+function sideTeam(m, side){
+  return side === "a" ? m.a : (side === "b" ? m.b : "");
+}
+function scoreAdvancerSide(a, b){
+  if(+a>+b) return "a";
+  if(+b>+a) return "b";
+  return "";
+}
+function wagerAdvancerSide(w){
+  return scoreAdvancerSide(w.a, w.b) || w.advancer || "";
+}
+function logAdvancerMeta(e){
+  const raw = String((e && e.name) || "");
+  if(!raw) return { advancer:"", oldAdvancer:"" };
+  if(raw[0] === "{"){
+    try {
+      const obj = JSON.parse(raw);
+      return { advancer: obj.advancer || "", oldAdvancer: obj.oldAdvancer || "" };
+    } catch(err) {}
+  }
+  return { advancer: raw, oldAdvancer:"" };
+}
+function logAdvancerSide(e){
+  return scoreAdvancerSide(e.a, e.b) || logAdvancerMeta(e).advancer || "";
+}
+function logOldAdvancerSide(e){
+  return scoreAdvancerSide(e.oa, e.ob) || logAdvancerMeta(e).oldAdvancer || "";
+}
+function advancerCopy(side, m, withFlag){
+  const team = sideTeam(m, side);
+  if(!team) return "";
+  return `${withFlag ? teamFlag(team) + " " : ""}${teamCode(team)} wins`;
+}
+function wagerPickText(w, m, withFlag){
+  const score = `${w.a}–${w.b}`;
+  const side = m && m.knockout ? wagerAdvancerSide(w) : "";
+  if(side) return `${score} · ${advancerCopy(side, m, withFlag)}`;
+  return score;
+}
+function wagerPickHTML(w, m, withFlag){
+  const score = `${w.a}–${w.b}`;
+  const side = m && m.knockout ? wagerAdvancerSide(w) : "";
+  if(side) return `${score}<br><span class="pick-adv">${esc(advancerCopy(side, m, withFlag))}</span>`;
+  return score;
+}
+function wagerPickCopy(w, m){
+  return wagerPickText(w, m, true).replace(/–/g, "-").replace(" · ", ", ");
+}
+function logWagerPickCopy(e, m){
+  const score = `${e.a}-${e.b}`;
+  const side = m && m.knockout ? logAdvancerSide(e) : "";
+  if(side) return `${score}, ${advancerCopy(side, m, true)}`;
+  return score;
+}
 
 // Compute standings per group from completed match results only.
 function groupStandings(){
@@ -1830,7 +1969,6 @@ function initLiveWarm(isStale){
         Object.entries(r.results).map(([k,v]) => [+k, v])
       );
       applyKoFixturesResponse(r);
-      applyTestKoDemo();
       applyLogResponse(r);
       if(!r.scoreError) STATE.lastRefresh = Date.now();
       renderScoreStatus();
@@ -2949,6 +3087,12 @@ function crwFmtDateTime(ts){
   return { dm:`${day}-${mon}`, time:`${h}:${mm}${ampm}` };
 }
 
+function crwMatchupCopy(m){
+  // Single spaces around v — triple-space padding caused WhatsApp line wraps
+  // before "wins" on mobile paste (see v190).
+  return `${teamFlag(m.a)} ${teamCode(m.a)} v ${teamFlag(m.b)} ${teamCode(m.b)}`;
+}
+
 function copyRecentWagers(){
   // DISPLAY ONLY — collapses to the most recent event per wager target (current
   // position, not edit history); the underlying Sheet Log keeps every raw event
@@ -3016,13 +3160,12 @@ function copyRecentWagers(){
   const rows = [];
   currentMatches.forEach(e=>{
     const m = elFor(e.mN);
-    if(!m){ rows.push(`M${e.mN} →   (match not found)`); return; }
+    if(!m){ rows.push(`M${e.mN} → (match not found)`); return; }
     // Abbreviated matchup — flag + 3-letter code, no full country name —
     // to avoid long lines wrapping when pasted into WhatsApp on mobile.
     // No date prefix: within this single 3-hour-window copy, matchups are
     // unique, so a per-line date adds no disambiguating value.
-    const match = `${teamFlag(m.a)} ${teamCode(m.a)}   v   ${teamFlag(m.b)} ${teamCode(m.b)}`;
-    rows.push(`${match} →   ${e.a}-${e.b}`);
+    rows.push(`${crwMatchupCopy(m)} → ${logWagerPickCopy(e, m)}`);
   });
   if(currentWinner.length){
     rows.push(`🏆 World Cup Winner → ${currentWinner.map(e => `${teamFlag(e.name)} ${e.name}`).join(", ")}`);
@@ -3114,7 +3257,8 @@ function buildRulesHTML(){
   <li>You can predict the outcome of any number of games you choose. Prediction for each game costs <b>INR 100</b>. There are 104 games in total; predicting every game costs INR 10,400.</li>
   <li>Prediction should be for the score. For A vs B, if you predict B to win 2–1 your prediction is <b>1‑2</b>; for A to win by the same score it's <b>2‑1</b>. Team A and B are as shown in the FIFA fixture list posted in the group.</li>
   <li>You get <b>3 points</b> for predicting either the outcome or the score correctly. For score prediction, <b>1‑2 or 2‑1 are treated as the same</b>. If you predict both outcome and score correctly you get <b>6 points</b>.</li>
-  <li>For games from the Round of 32 onwards a draw cannot be the outcome, as one team must progress. The predicted score should also include goals scored in a penalty shootout where applicable.</li>
+  <li>For knockout games, predict the <b>final playing score</b>: 90 minutes + extra time, if played. Do <b>not</b> include penalty-shootout goals.</li>
+  <li>If your knockout score is a draw, also pick the team that wins. If your score has a winner, the winning team is understood from that score.</li>
   <li>All games and predictions are captured on a spreadsheet and updated daily.</li>
   <li>You can post your predictions in the group or PM the organiser. A prediction is valid only if made <b>before kickoff</b>.</li>
   <li>You may also predict one team to win the World Cup, before the Round of 32 starts. Predicted winner wins the Cup: <b>24</b>; reaches (max) the final: <b>16</b>; semi: <b>12</b>; quarter-final: <b>8</b>; pre-quarter: <b>4</b>. Entry fee INR 500.</li>
@@ -3147,8 +3291,8 @@ function groupTable(letter){
 }
 function koMatchById(n){ return KO.find(k=>k[0]===n); }
 function koTeams(n){ const k=koMatchById(n); return k?[koSide(k,"a"),koSide(k,"b")]:[null,null]; }
-function koWinner(n){ const r=matchResult(n); if(!r) return null; const [a,b]=koTeams(n); if(!a||!b) return null; return r.a>=r.b?a:b; }
-function koLoser(n){ const r=matchResult(n); if(!r) return null; const [a,b]=koTeams(n); if(!a||!b) return null; return r.a>=r.b?b:a; }
+function koWinner(n){ const r=matchResult(n); if(!r) return null; const m=elFor(n); const [a,b]=koTeams(n); if(!a||!b) return null; const side=resultOutcomeSide(r,m); return side==="a"?a:(side==="b"?b:null); }
+function koLoser(n){ const r=matchResult(n); if(!r) return null; const m=elFor(n); const [a,b]=koTeams(n); if(!a||!b) return null; const side=resultOutcomeSide(r,m); return side==="a"?b:(side==="b"?a:null); }
 function resolveSlot(code){
   let m=code.match(/^([12])([A-L])$/); if(m){ const gt=groupTable(m[2]); return gt.complete?gt.arr[m[1]==="1"?0:1].team:null; }
   m=code.match(/^W(\d+)$/); if(m) return koWinner(+m[1]);
@@ -3160,9 +3304,7 @@ function matchCardHTML(m, dd, rec){
   const wc=STATE.wagers[m.n]?Object.keys(STATE.wagers[m.n]).length:0;
   const phaseLabel = m.knockout ? m.group : "Grp " + m.group;
   const aName = esc(m.a), bName = esc(m.b), city = esc(m.city);
-  const testBadge = r && r.test ? '<span class="chip test">Testing</span>' : '';
-  const playedLabel = r ? formatResultDisplay(r).label : "Full-time";
-  const chip = st==="played"?`<span class="chip played">${playedLabel}</span>`
+  const chip = st==="played"?'<span class="chip played">Full-time</span>'
              : st==="open"?'<span class="chip open">Open</span>'
              : st==="pending"?'<span class="chip locked">Pending</span>'
              : '<span class="chip locked">Locked</span>';
@@ -3173,7 +3315,7 @@ function matchCardHTML(m, dd, rec){
   const peek = `<div class="peek">${
     st==="pending" && !owners.length ? `<div class="pk-empty">Wagers open when both teams are decided.</div>` :
     owners.length ? `<div class="pk-head"><div>Player · record</div><div>Predicted</div><div>Result</div><div>Pts</div></div>`+owners.map(oid=>{
-      const w=wgs[oid]; const pp=scoreWager(w,r);
+      const w=wgs[oid]; const pp=scoreWager(w,r,m);
       const cls = pp===null?'pend':(pp>0?'win':'loss');
       const wl = pp===null?'–':(pp>0?'W':'L');
       const ptTxt = pp===null?'·':pp;
@@ -3187,14 +3329,14 @@ function matchCardHTML(m, dd, rec){
       // first column (.who), next to the name, instead of the old .pp slot.
       return `<div class="pk-row${canEdit?' pk-editable':''}"${canEdit?` data-open-owner="${oid}" data-open-match="${m.n}"`:''}">
         <div class="who"><div class="nm">${memberName(oid)}</div><div class="sub2">record <span class="recw">${rc.w}</span>–<span class="recl">${rc.l}</span>${extra}</div></div>
-        <div class="pkk">${w.a}–${w.b}</div>
+        <div class="pkk">${wagerPickHTML(w, m, true)}</div>
         <div class="wlc ${cls}">${wl}</div>
         <div class="pp ${cls}">${ptTxt}</div>
       </div>`;
     }).join('') : `<div class="pk-empty">No wagers yet — be the first.</div>`
   }${st==="pending" && !owners.length ? "" : `<button class="pk-cta" data-open="${m.n}">${st==='open'?'Enter a wager':'View Wagers for Match'} →</button>`}</div>`;
   return `<div class="match expandable status-${st}" data-match="${m.n}">
-    <div class="m-top">${testBadge}${chip}<span class="m-meta">${dd.time} ${dd.tz} · ${phaseLabel} · M${m.n}</span></div>
+    <div class="m-top">${chip}<span class="m-meta">${dd.time} ${dd.tz} · ${phaseLabel} · M${m.n}</span></div>
     <div class="m-teams">
       <div class="t-name home">${teamNameHTML(m,"a")}</div>${mid}<div class="t-name away">${teamNameHTML(m,"b")}</div>
     </div>
@@ -3357,10 +3499,14 @@ function renderLog(){
     if(!m) return "";
     const proxy = e.by!==e.owner ? ` for <b>${memberName(e.owner)}</b>` : "";
     const verb = e.type==="edit"?"updated":e.type==="delete"?"cleared":"entered";
-    const oldtxt = e.type==="edit"&&e.oa!=null?` <span style="color:var(--faint)">(was ${e.oa}–${e.ob})</span>`:"";
+    const oldAdvSide = m.knockout ? logOldAdvancerSide(e) : "";
+    const oldPick = oldAdvSide ? `${e.oa}–${e.ob}, ${advancerCopy(oldAdvSide, m, false)}` : `${e.oa}–${e.ob}`;
+    const oldtxt = e.type==="edit"&&e.oa!=null?` <span style="color:var(--faint)">(was ${esc(oldPick)})</span>`:"";
+    const advSide = m.knockout ? logAdvancerSide(e) : "";
+    const advtxt = advSide ? ` · ${esc(advancerCopy(advSide, m, false))}` : "";
     const scoretxt = e.type==="delete"
       ? `· ${esc(m.a)} v ${esc(m.b)}`
-      : `· ${esc(m.a)} <span class="sl">${e.a}–${e.b}</span> ${esc(m.b)}${oldtxt}`;
+      : `· ${esc(m.a)} <span class="sl">${e.a}–${e.b}</span> ${esc(m.b)}${advtxt}${oldtxt}`;
     return `<div class="logitem ${e.type}"><div class="tl"><i></i></div><div class="logbody">
       <div class="logtext"><b>${memberName(e.by)}</b> ${verb}${proxy} ${scoretxt}${e.backfill?'<span class="bf">backfill</span>':''}</div>
       <div class="logtime">${fmtClock(e.t)} · M${e.mN}</div></div></div>`;
@@ -3421,7 +3567,7 @@ function applyLogResponse(r){
 }
 
 /* ---------- Sheet (modal) ---------- */
-function openSheet(html){ $("#sheet").innerHTML=`<div class="grab"></div><button class="closebtn" onclick="closeSheet()">✕</button>`+html; $("#sheet").classList.add("show"); $("#scrim").classList.add("show"); $("#sheet").scrollTop=0; }
+function openSheet(html){ delete $("#sheet").dataset.matchN; $("#sheet").innerHTML=`<div class="grab"></div><button class="closebtn" onclick="closeSheet()">✕</button>`+html; $("#sheet").classList.add("show"); $("#scrim").classList.add("show"); $("#sheet").scrollTop=0; }
 function closeSheet(){ $("#sheet").classList.remove("show"); $("#scrim").classList.remove("show"); }
 $("#scrim").onclick=closeSheet;
 
@@ -3545,7 +3691,7 @@ function copyMatchWagersToClipboard(n, silent){
     ``,
     `${owners.length} wager${owners.length!==1?'s':''}:`
   ];
-  owners.forEach(oid=>{ const w=wgs[oid]; lines.push(`${memberName(oid)}: ${w.a}-${w.b}`); });
+  owners.forEach(oid=>{ const w=wgs[oid]; lines.push(`${memberName(oid)}: ${wagerPickCopy(w, m)}`); });
   const txt=lines.join("\n");
   navigator.clipboard.writeText(txt).then(()=>{
     if(!silent) toast("Copied to clipboard ✓ — paste into WhatsApp");
@@ -3556,6 +3702,41 @@ function copyMatchWagersToClipboard(n, silent){
     document.body.removeChild(ta);
     if(!silent) toast("Copied to clipboard ✓ — paste into WhatsApp");
   });
+}
+
+function advancerOptionsHTML(m, selected){
+  if(!m || !m.knockout) return "";
+  const sideBtn = side => {
+    const team = sideTeam(m, side);
+    return `<button type="button" class="advancer-btn${selected===side?' active':''}" data-advancer-choice="${side}">${teamFlag(team)} ${teamCode(team)}${selected===side?' ✓':''}</button>`;
+  };
+  return `<div class="advancer-wrap${selected?' show':''}" id="advancerWrap">
+    <div class="advancer-title">Who wins?</div>
+    <div class="advancer-nudge">Pick one team to save this draw wager.</div>
+    <input type="hidden" id="advancer" value="${selected||''}">
+    <div class="advancer-options">${sideBtn("a")}${sideBtn("b")}</div>
+  </div>`;
+}
+function setAdvancerSelection(side){
+  const val = side === "a" || side === "b" ? side : "";
+  const input = $("#advancer");
+  if(input) input.value = val;
+  const m = elFor(+($("#sheet") && $("#sheet").dataset.matchN));
+  document.querySelectorAll("[data-advancer-choice]").forEach(btn=>{
+    const active = btn.dataset.advancerChoice === val;
+    btn.classList.toggle("active", active);
+    const team = m ? sideTeam(m, btn.dataset.advancerChoice) : "";
+    if(team) btn.innerHTML = `${teamFlag(team)} ${teamCode(team)}${active?' ✓':''}`;
+  });
+}
+function syncAdvancerVisibility(){
+  const wrap = $("#advancerWrap"), A = $("#scA"), B = $("#scB");
+  if(!wrap || !A || !B) return;
+  const a = parseInt(A.value, 10), b = parseInt(B.value, 10);
+  const tied = !isNaN(a) && !isNaN(b) && a === b;
+  wrap.classList.toggle("show", tied);
+  wrap.classList.toggle("needs-pick", tied && !(($("#advancer") && $("#advancer").value) || ""));
+  if(!tied) setAdvancerSelection("");
 }
 
 function openMatch(n, preloadOwner, reopen){
@@ -3570,12 +3751,12 @@ function openMatch(n, preloadOwner, reopen){
   const dd=disp(m.koUTC);
   const phaseLabel = m.knockout ? m.group : "Group " + m.group;
   const aName = esc(m.a), bName = esc(m.b), venueName = esc(m.venue), cityName = esc(m.city);
-  const testBadge = r && r.test ? '<span class="chip test">Testing</span>' : "";
-  let head = `<h2>${aName} <span style="color:var(--faint)">v</span> ${bName}${testBadge ? " "+testBadge : ""}</h2>
+  const aLabel = teamFullLabelHTML(m.a), bLabel = teamFullLabelHTML(m.b);
+  let head = `<h2>${aLabel} <span style="color:var(--faint)">v</span> ${bLabel}</h2>
     <div class="sub">${dd.date} · ${dd.time} ${dd.tz} · ${venueName}, ${cityName} · ${esc(phaseLabel)}</div>`;
 
   let scoreBlk = r
-    ? `<div class="scorebig"><div class="tn h">${aName}</div>${resultScoreHTML(r, true)}<div class="tn">${bName}</div></div>`
+    ? `<div class="scorebig"><div class="tn h">${aLabel}</div>${resultScoreHTML(r, true)}<div class="tn">${bLabel}</div></div>`
     : (locked
         ? `<div class="lockbox">⏱ <b>Wagers locked</b> — this match has kicked off. No result recorded yet; tap <b>↻ Scores</b> to pull it.</div>`
         : ``);
@@ -3604,23 +3785,25 @@ function openMatch(n, preloadOwner, reopen){
     const myW = wgs[acting]; // existing wager for the logged-in user, if any
     const preA = myW ? myW.a : '';
     const preB = myW ? myW.b : '';
+    const preAdv = myW ? myW.advancer : '';
     const btnLabel = myW ? 'Update wager' : 'Save wager';
     const koHint = n >= 73
-      ? `<div class="note" style="margin-bottom:8px">Include penalty-shootout goals in your score. Knockout picks must have a winner.</div>`
+      ? `<div class="note" style="margin-bottom:8px"><b>Final playing score</b> means 90 minutes + extra time, if played. Do not include penalty-shootout goals. If you predict a draw, pick who wins.</div>`
       : "";
     form = `<div class="formcard">
       ${koHint}
-      ${myW?`<div class="note" style="margin-bottom:10px">You already have a wager on this match (<b>${myW.a}–${myW.b}</b>). Change it below — the latest before kickoff counts.</div>`:''}
+      ${myW?`<div class="note" style="margin-bottom:10px">You already have a wager on this match (<b>${wagerPickText(myW, m, true)}</b>). Change it below — the latest before kickoff counts.</div>`:''}
       <div class="formrow">
         <div class="fld"><label>Whose wager</label>
           <select id="ownerSel">${ownerOpts()}</select></div>
         <div class="fld"><label>Predicted score</label>
           <div class="scoreinputs">
-            <div><div class="teamcap">${aName}</div><input id="scA" type="number" min="0" max="20" inputmode="numeric" placeholder="?" value="${preA}"></div>
+            <div><div class="teamcap">${aLabel}</div><input id="scA" type="number" min="0" max="20" inputmode="numeric" placeholder="?" value="${preA}"></div>
             <div class="mid">–</div>
-            <div><div class="teamcap">${bName}</div><input id="scB" type="number" min="0" max="20" inputmode="numeric" placeholder="?" value="${preB}"></div>
+            <div><div class="teamcap">${bLabel}</div><input id="scB" type="number" min="0" max="20" inputmode="numeric" placeholder="?" value="${preB}"></div>
           </div></div>
       </div>
+      ${advancerOptionsHTML(m, preAdv)}
       <div class="btnrow">
         <button class="btn ghost" id="clearWager">Clear</button>
         <button class="btn" id="saveWager">${btnLabel}</button>
@@ -3634,11 +3817,12 @@ function openMatch(n, preloadOwner, reopen){
             <select id="ownerSel">${ownerOpts()}</select></div>
           <div class="fld"><label>Predicted score</label>
             <div class="scoreinputs">
-              <div><div class="teamcap">${aName}</div><input id="scA" type="number" min="0" max="20" inputmode="numeric" placeholder="?"></div>
+              <div><div class="teamcap">${aLabel}</div><input id="scA" type="number" min="0" max="20" inputmode="numeric" placeholder="?"></div>
               <div class="mid">–</div>
-              <div><div class="teamcap">${bName}</div><input id="scB" type="number" min="0" max="20" inputmode="numeric" placeholder="?"></div>
+              <div><div class="teamcap">${bLabel}</div><input id="scB" type="number" min="0" max="20" inputmode="numeric" placeholder="?"></div>
             </div></div>
         </div>
+        ${advancerOptionsHTML(m, "")}
         <button class="btn" id="saveWager">Save backfill wager</button>
         <div class="note" style="margin-top:10px">Backfilled wagers are flagged in the activity log. Only for picks genuinely made before kickoff.</div>
       </div>
@@ -3674,13 +3858,22 @@ function openMatch(n, preloadOwner, reopen){
       const tapHint = canEdit ? ' style="cursor:pointer"' : '';
       return `<div class="wrow${editClass}"${tappable}${tapHint}>
         <div class="nm">${memberName(oid)}${extra?`<span class="by"> ${extra}</span>`:''}</div>
-        <div class="pk">${w.a}–${w.b}</div>
+        <div class="pk">${wagerPickHTML(w, m, true)}</div>
       </div>`;
     }).join("");
   }
   list+=`</div><div style="height:24px"></div>`;
 
   openSheet(head+scoreBlk+form+list);
+  $("#sheet").dataset.matchN = String(n);
+  document.querySelectorAll("[data-advancer-choice]").forEach(btn=>btn.onclick=()=>{
+    setAdvancerSelection(btn.dataset.advancerChoice);
+    syncAdvancerVisibility();
+  });
+  const scoreA=$("#scA"), scoreB=$("#scB");
+  if(scoreA){ scoreA.oninput=syncAdvancerVisibility; scoreA.onchange=syncAdvancerVisibility; }
+  if(scoreB){ scoreB.oninput=syncAdvancerVisibility; scoreB.onchange=syncAdvancerVisibility; }
+  syncAdvancerVisibility();
   // First entry only (not save/clear re-render): silently clear clipboard so
   // stale content from a prior copy can't survive an accidental paste. Reverses
   // v56 bootstrap (which wrote all match wagers here — confusing for non-admins).
@@ -3696,6 +3889,8 @@ function openMatch(n, preloadOwner, reopen){
     if(osel) osel.value=oid;
     if(A) A.value=w.a;
     if(B) B.value=w.b;
+    setAdvancerSelection(w.advancer);
+    syncAdvancerVisibility();
     if(btn) btn.textContent="Update wager";
     // scroll form into view
     if(osel) osel.scrollIntoView({behavior:"smooth", block:"center"});
@@ -3713,6 +3908,8 @@ function openMatch(n, preloadOwner, reopen){
       const A=$("#scA"), B=$("#scB"), btn=$("#saveWager");
       if(A) A.value = pw ? pw.a : '';
       if(B) B.value = pw ? pw.b : '';
+      setAdvancerSelection(pw ? pw.advancer : '');
+      syncAdvancerVisibility();
       if(btn) btn.textContent = pw ? 'Update wager' : 'Save wager';
     }
   }
@@ -3745,6 +3942,8 @@ function openMatch(n, preloadOwner, reopen){
     const A=$("#scA"), B=$("#scB"), btn=$("#saveWager");
     if(A){ A.value=""; A.placeholder="?"; }
     if(B){ B.value=""; B.placeholder="?"; }
+    setAdvancerSelection("");
+    syncAdvancerVisibility();
     if(btn) btn.textContent="Save wager";
   };
   // when owner changes, pre-fill that person's existing wager (if any) and relabel button
@@ -3755,6 +3954,8 @@ function openMatch(n, preloadOwner, reopen){
       const A=$("#scA"), B=$("#scB"), btn=$("#saveWager");
       if(A) A.value = ow ? ow.a : '';
       if(B) B.value = ow ? ow.b : '';
+      setAdvancerSelection(ow ? ow.advancer : '');
+      syncAdvancerVisibility();
       if(btn) btn.textContent = ow ? 'Update wager' : 'Save wager';
     };
   }
@@ -3773,16 +3974,19 @@ function saveWager(n, locked){
   const ownerId=$("#ownerSel").value;
   const a=parseInt($("#scA").value,10), b=parseInt($("#scB").value,10);
   if(isNaN(a)||isNaN(b)||a<0||b<0){ toast("Enter both scores"); return; }
+  const advancer = n >= 73 && a === b ? (($("#advancer") && $("#advancer").value) || "") : "";
   if(n >= 73 && a === b){
-    toast("Knockout wagers must pick a winner (include pen goals, no draw)");
-    return;
+    if(advancer !== "a" && advancer !== "b"){
+      toast("Pick who wins");
+      return;
+    }
   }
   const isProxy = ownerId!==acting;
   const btn = $("#saveWager");
   SAVE_IN_FLIGHT = true;
   if(btn) btn.disabled = true;
   toast("Saving…");
-  serverSaveWager(n, ownerId, a, b).then(r => {
+  serverSaveWager(n, ownerId, a, b, advancer).then(r => {
     if(!r.ok){ toast("Error: " + (r.error||"unknown")); return; }
     // merge server wagers into STATE
     if(r.wagers) STATE.wagers = mergeWagers(r.wagers);
@@ -3807,7 +4011,7 @@ function openPlayer(pid){
     if(!matchInPhase(n, PHASE)) continue;
     const wg=STATE.wagers[n][pid]; if(!wg) continue;
     placed++;
-    const m=elFor(+n); const r=matchResult(+n); const p=scoreWager(wg,r);
+    const m=elFor(+n); const r=matchResult(+n); const p=scoreWager(wg,r,m);
     if(p===null) pend++; else { pts+=p; if(p===6)w6++; else if(p===3)w3++; else l++; }
     rows.push({n:+n,m,wg,r,p});
   }
@@ -3827,18 +4031,17 @@ function openPlayer(pid){
     // column header
     body+=`<div class="ph-head">
       <div>Match</div>
-      <div style="text-align:center">PICK</div>
-      <div style="text-align:center">Result</div>
-      <div></div>
-      <div style="text-align:center">Outcome</div>
-      <div style="text-align:center">Score</div>
-      <div style="text-align:right">Pts</div>
+      <div>PICK</div>
+      <div>Result</div>
+      <div>Outcome</div>
+      <div>Score</div>
+      <div>Pts</div>
     </div>`;
     body+=rows.map(row=>{
       const r=row.r; const wg=row.wg; const p=row.p; const m=row.m;
-      // outcome: right winner/draw
-      const sgn=x=>x>0?1:(x<0?-1:0);
-      const outcomeOk = r ? sgn(wg.a-wg.b)===sgn(r.a-r.b) : null;
+      const actualOutcome = resultOutcomeSide(r,m);
+      const pickedOutcome = wagerOutcomeSide(wg);
+      const outcomeOk = r && actualOutcome ? pickedOutcome===actualOutcome : null;
       // scoreline: direction-agnostic exact match
       const scoreOk = r ? ((wg.a===r.a&&wg.b===r.b)||(wg.a===r.b&&wg.b===r.a)) : null;
       const resTxt = r ? `${r.a}–${r.b}` : "—";
@@ -3850,9 +4053,8 @@ function openPlayer(pid){
       const scrCls = scoreOk===null?"pend":scoreOk?"win":"loss";
       return `<div class="ph-row">
         <div class="ph-match">${esc(m.a)} v ${esc(m.b)}</div>
-        <div class="ph-pick">${wg.a}–${wg.b}</div>
+        <div class="ph-pick">${wagerPickHTML(wg, m, true)}</div>
         <div class="ph-res${r?' res-known':''}">${resTxt}</div>
-        <div></div>
         <div class="ph-chk ${outCls}">${outStr}</div>
         <div class="ph-chk ${scrCls}">${scrStr}</div>
         <div class="ph-pts ${ptCls}">${ptTxt}</div>
@@ -3871,7 +4073,6 @@ function refreshScores(silent){
       Object.entries(r.results).map(([k,v]) => [+k, v])
     );
     applyKoFixturesResponse(r);
-    applyTestKoDemo();
     applyLogResponse(r);
     if(!r.scoreError) STATE.lastRefresh = Date.now();
     renderScoreStatus();
@@ -3942,7 +4143,7 @@ function buildMatchWagersCsv(){
     const dd=disp(m.koUTC);
     Object.keys(STATE.wagers[n] || {}).sort((a,b)=>memberName(a).localeCompare(memberName(b))).forEach(oid=>{
       const w=STATE.wagers[n][oid]; if(!w) return;
-      const p=scoreWager(w,r);
+      const p=scoreWager(w,r,m);
       rows.push([
         m.n,
         `${dd.date} ${dd.time} ${dd.tz}`,
@@ -3952,8 +4153,10 @@ function buildMatchWagersCsv(){
         memberName(oid),
         w.a,
         w.b,
+        w.advancer ? sideTeam(m, w.advancer) : "",
         r ? r.a : "",
         r ? r.b : "",
+        r ? sideTeam(m, resultOutcomeSide(r,m)) : "",
         p===null ? "" : p,
         memberName(w.by),
         w.backfill ? "yes" : ""
@@ -3962,7 +4165,7 @@ function buildMatchWagersCsv(){
   });
   return {
     count: rows.length,
-    csv: csvRows(["Match-#","Date","Group","Home","Away","Owner","Pick-Home","Pick-Away","Result-Home","Result-Away","Points","Entered-by","Backfill"], rows)
+    csv: csvRows(["Match-#","Date","Group","Home","Away","Owner","Pick-Home","Pick-Away","Pick-Advancer","Result-Home","Result-Away","Result-Advancer","Points","Entered-by","Backfill"], rows)
   };
 }
 
@@ -4346,33 +4549,6 @@ if (IS_TEST) {
   } catch(e){}
 }
 
-// Staging-only demo rows: four KO score shapes on M73–M76 (never written to sheet).
-const TEST_KO_DEMO = {
-  fixtures: {
-    73: { n:73, a:"Mexico", b:"South Korea", aCode:"MEX", bCode:"KOR", source:"test-demo" },
-    74: { n:74, a:"Brazil", b:"Japan", aCode:"BRA", bCode:"JPN", source:"test-demo" },
-    75: { n:75, a:"France", b:"Germany", aCode:"FRA", bCode:"GER", source:"test-demo" },
-    76: { n:76, a:"Argentina", b:"Croatia", aCode:"ARG", bCode:"CRO", source:"test-demo" },
-  },
-  results: {
-    73: { a:2, b:1, ft:[2,1], test:true },
-    74: { a:3, b:2, ft:[2,2], et:[3,2], test:true },
-    75: { a:5, b:4, ft:[1,1], et:[3,3], p:[2,1], test:true },
-    76: { a:4, b:3, ft:[0,0], et:[0,0], p:[4,3], test:true },
-  }
-};
-function applyTestKoDemo(){
-  if(!IS_TEST || !STATE) return;
-  STATE.koFixtures = STATE.koFixtures || {};
-  Object.entries(TEST_KO_DEMO.fixtures).forEach(([n,f])=>{
-    STATE.koFixtures[+n] = Object.assign({}, STATE.koFixtures[+n] || {}, f);
-  });
-  STATE.results = STATE.results || {};
-  Object.entries(TEST_KO_DEMO.results).forEach(([n,r])=>{
-    STATE.results[+n] = Object.assign({}, r);
-  });
-}
-
 let TOKEN = null; // device identity token, stored in localStorage
 
 const Session = {
@@ -4403,8 +4579,8 @@ async function api(action, payload) {
   }
 }
 
-async function serverSaveWager(n, ownerId, a, b) {
-  return api("save", { token: TOKEN, matchN: n, ownerId, a, b });
+async function serverSaveWager(n, ownerId, a, b, advancer) {
+  return api("save", { token: TOKEN, matchN: n, ownerId, a, b, advancer: advancer || "" });
 }
 async function serverRefreshScores() {
   return api("refresh", {
@@ -4467,7 +4643,6 @@ async function serverTopScorers() {
       bonusWagerLock: data.bonusWagerLock || bonusWagerLockInfo(),
       lastRefresh: null
     };
-    applyTestKoDemo();
     const seedRefreshEntry = STATE.log.find(e => e.type === "refresh");
     if (seedRefreshEntry) STATE.lastRefresh = new Date(seedRefreshEntry.t).getTime();
 
